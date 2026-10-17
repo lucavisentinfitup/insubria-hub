@@ -16,7 +16,7 @@ const TEST = ENV.NODE_ENV === "test";
 const PORT = Number(ENV.PORT || 3000);
 const DATA_DIR = path.resolve(ENV.DATA_DIR || path.join(ROOT, "data"));
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
-const PUBLIC_URL = ENV.PUBLIC_URL || `http://localhost:${PORT}`;
+const PUBLIC_URL = ENV.PUBLIC_URL || ENV.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 const listEnv = k => (ENV[k] || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 const ADMIN_EMAILS = listEnv("ADMIN_EMAILS");
 const STAFF_EMAILS = listEnv("STAFF_EMAILS");

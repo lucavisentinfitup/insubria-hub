@@ -39,7 +39,7 @@ Serve un dominio HTTPS (obbligatorio per service worker e notifiche), un server 
 - SMTP per inviare i codici di accesso.
 - `ANTHROPIC_API_KEY` per l'assistente.
 
-`render.yaml` crea il servizio su Render con disco da 5 GB; il `Dockerfile` va bene per qualunque hosting con volumi.
+`render.yaml` (nella radice del repository) crea il servizio su Render sul piano gratuito; i commenti nel file spiegano come passare a un piano con disco persistente. Il `Dockerfile` va bene per qualunque hosting con volumi.
 
 ## Struttura
 

@@ -1,0 +1,46 @@
+# Blueprint Render per Insubria Hub.
+# Piano gratuito: indirizzo onrender.com con HTTPS. Il disco non è persistente: database, file caricati
+# e iscrizioni alle notifiche si azzerano a ogni riavvio o dopo 15 minuti senza visite.
+# Per conservare i dati: plan 0.5c-512mb + disk (mountPath /var/data) e DATA_DIR=/var/data/insubria-hub.
+services:
+  - type: web
+    name: insubria-hub
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: app
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /manifest.webmanifest
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: STAFF_DOMAINS
+        value: uninsubria.it
+      # Notifiche push: la chiave pubblica non è segreta, la privata va inserita nel pannello Render
+      - key: VAPID_PUBLIC_KEY
+        value: BALwvTWYnMXgNhpFnXsi_n2k5lOe8neE_qYJGaOEmJ-4okox4vvs5Y3NKAmhZd_GnT6A6VUtDeJ53En6b8vV2Po
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:infoeventiinsubria@gmail.com
+      # Email con il codice di accesso, inviate dall'account Gmail del progetto (serve una password per app)
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_SECURE
+        value: "true"
+      - key: SMTP_USER
+        value: infoeventiinsubria@gmail.com
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        value: Insubria Hub <infoeventiinsubria@gmail.com>
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
