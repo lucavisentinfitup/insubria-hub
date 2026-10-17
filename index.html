@@ -216,6 +216,29 @@ form.f { display: grid; gap: 12px; margin-top: 12px; }
 .step.now i { background: var(--brand); }
 .step b { display: block; font-size: 14.5px; }
 .step span { font-size: 13px; color: var(--ink-soft); }
+.tabbar.six { grid-template-columns: repeat(6, 1fr); }
+.ann { border-radius: var(--r-m); padding: 12px 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; }
+.ann.urgente { background: color-mix(in srgb, var(--bad) 16%, var(--glass)); border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
+.ann.importante { background: color-mix(in srgb, var(--peach) 28%, var(--glass)); }
+.ann .lvl { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; background: var(--brand); }
+.ann.urgente .lvl { background: var(--bad); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bad) 22%, transparent); }
+.ann.importante .lvl { background: var(--warn); }
+.ann.expired { opacity: .55; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; gap: 4px; }
+.seg button { border: 0; background: transparent; border-radius: 999px; padding: 8px; font-weight: 600; cursor: pointer; color: var(--ink-soft); }
+.seg button[aria-pressed="true"] { background: var(--glass-strong); color: var(--brand); box-shadow: inset 0 1px 0 var(--glass-hi); }
+.staff-answer { border-radius: var(--r-s); padding: 12px; background: color-mix(in srgb, var(--brand) 11%, transparent); border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent); display: grid; gap: 4px; margin-top: 10px; }
+.tag.staff { background: var(--brand); color: var(--on-brand); }
+.file { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; border-radius: var(--r-m); padding: 12px 14px; }
+.file .ext { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font: 800 11px/1 var(--font-display); background: var(--glass-strong); color: var(--brand-deep); text-transform: uppercase; letter-spacing: .04em; }
+.bars { display: grid; gap: 8px; }
+.bars div { display: grid; grid-template-columns: minmax(0, 120px) 1fr 26px; gap: 8px; align-items: center; font-size: 13px; }
+.bars i { display: block; height: 8px; border-radius: 4px; background: var(--brand); }
+.bars b { text-align: right; font-variant-numeric: tabular-nums; }
+.kpis.four { grid-template-columns: repeat(2, 1fr); }
+.activity { display: grid; gap: 0; }
+.activity div { padding: 9px 0; border-bottom: 1px solid var(--hair); font-size: 13.5px; }
+.activity div:last-child { border-bottom: 0; }
 .view-in { animation: fade .35s ease; }
 @keyframes fade { from { opacity: .4; transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -239,6 +262,7 @@ form.f { display: grid; gap: 12px; margin-top: 12px; }
   <button data-tab="community"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/></svg>Community</button>
   <button data-tab="eventi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 9.5h18M8 3v3M16 3v3"/><path d="m12 12.5.9 1.9 2.1.3-1.5 1.4.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.4 2.1-.3z"/></svg>Eventi</button>
   <button data-tab="ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21"/><path d="M12 7.5c.6 2.4 2.1 3.9 4.5 4.5-2.4.6-3.9 2.1-4.5 4.5-.6-2.4-2.1-3.9-4.5-4.5 2.4-.6 3.9-2.1 4.5-4.5z"/></svg>Assistente</button>
+  <button data-tab="staff" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg>Staff</button>
 </nav>
 
 <div id="sheet-root"></div>
@@ -287,7 +311,16 @@ const S = {
   chat: [], busy: false, ctl: null,
   db: null, user: null, sample: undefined, uid: null, canEdit: false, names: {},
   openPost: null, replies: [], unsubReplies: null,
+  anns: [], materials: [], staffAnswers: [], faq: [], staffLog: [], assets: null,
+  commSeg: "domande", matDep: "Tutti", staffSub: "panoramica", inboxF: "aperte",
+  dismissed: [],
 };
+const LVL = { urgente: 0, importante: 1, info: 2 };
+const LVL_LABEL = { urgente: "Urgente", importante: "Importante", info: "Avviso" };
+const ANN_CATS = ["Lezioni", "Esami e appelli", "Segreteria", "Servizi", "Sicurezza ed emergenze", "Eventi", "Altro"];
+const MAT_KINDS = ["Slide", "Dispense", "Esercizi", "Esami passati", "Bibliografia", "Altro"];
+const STAFF_ROLES = ["Docente", "Ricercatore/Ricercatrice", "Tutor", "Segreteria studenti", "Personale tecnico-amministrativo"];
+const CITIES = ["Varese", "Como", "Busto Arsizio"];
 
 /* ------------------------------------------------------------------ utility */
 const $ = (s, r = document) => r.querySelector(s);
@@ -311,6 +344,9 @@ const ICON = {
   cal: '<rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 9.5h18M8 3v3M16 3v3"/>',
   up: '<path d="m6 14 6-6 6 6"/>',
   ig: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/>',
+  shield: '<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/>',
+  upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+  megaphone: '<path d="M3 10v4a1 1 0 0 0 1 1h3l5 4V5L7 9H4a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>',
   atom: '<circle cx="12" cy="12" r="1.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(120 12 12)"/>',
 };
 const icon = (n, extra = "") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" ${extra}>${ICON[n]}</svg>`;
@@ -373,6 +409,8 @@ function vHome() {
     <span class="icon-btn" aria-hidden="true">${icon("send")}</span>
   </button>
 
+  ${(() => { const o = activeAnns().filter(a => !a.pinned).slice(0, 3); return o.length ? `<div class="section-h"><h2>Avvisi dell'ateneo</h2></div>${o.map(a => vAnn(a)).join("")}` : ""; })()}
+
   <div class="section-h"><h2>Servizi rapidi</h2></div>
   <div class="tile-grid">${LINKS.map(l => `<a class="tile glass" href="${l.u}" target="_blank" rel="noopener">${icon(l.i)}${l.t}</a>`).join("")}</div>
 
@@ -380,6 +418,35 @@ function vHome() {
   ${ev.length ? ev.map(vEvent).join("") : `<a class="ig glass" href="${IG_EVENTS}" target="_blank" rel="noopener"><span class="logo">${icon("ig")}</span><span><b>@insubria_eventi_team</b><br><span class="muted" style="font-size:13.5px">Feste, aperitivi e iniziative in ateneo. Apri il profilo Instagram.</span></span></a>`}
 
   ${vQuantum()}`;
+}
+
+const depCity = id => DEPARTMENTS.find(d => d.id === id)?.city;
+const audLabel = v => DEPARTMENTS.find(d => d.id === v)?.name || (CITIES.includes(v) ? "sede di " + v : v);
+const todayISO = () => new Date().toISOString().slice(0, 10);
+function activeAnns(all) {
+  const t = todayISO(), dep = S.profile?.dep;
+  return S.anns.filter(a => (all || !a.expiresAt || a.expiresAt >= t) && (all || S.canEdit || !a.audience || a.audience === "tutti" || a.audience === dep || a.audience === depCity(dep)))
+    .sort((a, b) => (LVL[a.level] ?? 2) - (LVL[b.level] ?? 2) || b.createdAt - a.createdAt);
+}
+function vAnn(a, staff) {
+  const expired = a.expiresAt && a.expiresAt < todayISO();
+  return `<article class="ann glass ${esc(a.level)} ${expired ? "expired" : ""}" ${a.level === "urgente" ? 'role="alert"' : ""}>
+    <span class="lvl" aria-hidden="true"></span>
+    <div style="min-width:0;display:grid;gap:2px">
+      <div class="meta"><b style="color:var(--ink)">${LVL_LABEL[a.level] || "Avviso"}</b>${a.category ? `<span>· ${esc(a.category)}</span>` : ""}<span>· ${ago(a.createdAt)}</span>${staff && a.pinned ? '<span class="tag staff">In cima</span>' : ""}${expired ? '<span class="tag">Scaduto</span>' : ""}</div>
+      <b style="font-size:15px">${esc(a.title)}</b>
+      ${a.body ? `<div class="muted" style="font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(a.body)}</div>` : ""}
+      ${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener" style="font-size:13.5px;font-weight:600">Dettagli →</a>` : ""}
+      <span class="hint">${esc(a.byLabel || "Ateneo")}${a.audience && a.audience !== "tutti" ? " · per " + esc(audLabel(a.audience)) : ""}${a.expiresAt ? " · fino al " + fmtDate(a.expiresAt, { day: "numeric", month: "short" }) : ""}</span>
+    </div>
+    ${staff ? `<div class="stack" style="gap:6px"><button class="btn ghost small" data-act="pin-ann" data-id="${a.id}">${a.pinned ? "Togli dalla cima" : "Fissa in cima"}</button><button class="btn ghost small" style="color:var(--bad)" data-act="del-ann" data-id="${a.id}">Elimina</button></div>`
+      : a.pinned && a.level !== "urgente" ? `<button class="link-btn" style="color:var(--ink-soft);font-size:18px;line-height:1" data-act="dismiss-ann" data-id="${a.id}" aria-label="Nascondi questo avviso">×</button>` : ""}
+  </article>`;
+}
+function vPinned() {
+  if (S.tab === "staff") return "";
+  const list = activeAnns().filter(a => a.pinned && (a.level === "urgente" || !S.dismissed.includes(a.id)));
+  return list.length ? list.map(a => vAnn(a)).join("") : "";
 }
 
 function vQuantum() {
@@ -466,7 +533,36 @@ function simOut(st, plan, g) {
   return `<span>Con <b style="font-family:var(--font-display);font-size:18px">${g}</b></span><span>media <b>${f2(np)}</b> <span style="color:${diff >= 0 ? "var(--ok)" : "var(--bad)"}">(${diff >= 0 ? "+" : ""}${diff.toFixed(2).replace(".", ",")})</span> · base <b>${(np / 30 * 110).toFixed(1).replace(".", ",")}</b></span>`;
 }
 
+function vMaterialItem(m, staff) {
+  const href = m.assetId ? "/_blob/" + m.assetId : m.link;
+  const ext = m.assetId ? (String(m.name || "").split(".").pop() || (m.contentType || "").split("/").pop() || "file").slice(0, 4) : "link";
+  const dep = DEPARTMENTS.find(d => d.id === m.dep);
+  return `<article class="file glass">
+    <span class="ext">${esc(ext)}</span>
+    <div style="min-width:0;display:grid;gap:3px">
+      <b style="line-height:1.25">${esc(m.title)}</b>
+      <div class="meta"><span class="tag">${esc(m.kind)}</span>${m.course ? `<span>${esc(m.course)}</span>` : ""}${dep ? `<span>· ${esc(dep.id)}</span>` : ""}</div>
+      ${m.desc ? `<span class="muted" style="font-size:13px">${esc(m.desc)}</span>` : ""}
+      <span class="hint">${esc(m.byLabel || "Docente")} · ${ago(m.createdAt)}${m.size ? " · " + (m.size / 1048576).toFixed(1).replace(".", ",") + " MB" : ""}</span>
+      ${staff ? `<button class="link-btn" style="color:var(--bad);font-size:13px;justify-self:start" data-act="del-material" data-id="${m.id}">Elimina</button>` : ""}
+    </div>
+    ${href ? `<a class="btn ghost small" href="${esc(href)}" target="_blank" rel="noopener">Apri</a>` : ""}
+  </article>`;
+}
+function vMaterials() {
+  const q = (S.matQ || "").trim().toLowerCase();
+  const list = S.materials.filter(m => (S.matDep === "Tutti" || m.dep === S.matDep) && (!q || (m.title + " " + (m.course || "") + " " + (m.desc || "")).toLowerCase().includes(q)));
+  return `
+  <div class="search glass"><input id="mq" type="search" placeholder="Cerca slide, dispense, insegnamenti…" value="${esc(S.matQ || "")}" aria-label="Cerca materiali"></div>
+  <div class="chips" role="group" aria-label="Dipartimento">${["Tutti", ...DEPARTMENTS.map(d => d.id)].map(d => `<button class="chip" data-matdep="${d}" aria-pressed="${d === S.matDep}">${d}</button>`).join("")}</div>
+  ${list.length ? list.map(m => vMaterialItem(m)).join("") : `<div class="empty glass">${icon("book")}<h3>${S.materials.length ? "Nessun materiale con questi filtri" : "Ancora nessun materiale"}</h3><p class="muted" style="margin:0;max-width:34ch">Qui trovi slide, dispense ed esercizi caricati da docenti e personale dell'Insubria.</p></div>`}`;
+}
 function vCommunity() {
+  const seg = `<div class="seg glass" role="group" aria-label="Sezione"><button data-seg="domande" aria-pressed="${S.commSeg === "domande"}">Domande</button><button data-seg="materiali" aria-pressed="${S.commSeg === "materiali"}">Materiali dei docenti</button></div>`;
+  if (S.commSeg === "materiali") return seg + vMaterials();
+  return seg + vQuestions();
+}
+function vQuestions() {
   const f = S.filter;
   const q = f.q.trim().toLowerCase();
   const list = S.posts.filter(p => (f.uni === "Tutte" || p.uni === f.uni) && (f.area === "Tutte" || p.area === f.area) && (!q || (p.title + " " + p.body + " " + (p.subject || "")).toLowerCase().includes(q)));
@@ -488,7 +584,7 @@ function vPost(p) {
   const votes = Object.values(p.votes || {}).filter(Boolean).length;
   const mine = S.uid && p.votes?.[S.uid];
   return `<article class="post glass" data-act="open-post" data-id="${p.id}" tabindex="0">
-    <div class="meta"><span class="tag uni">${esc(p.uni)}</span><span class="tag">${esc(p.area)}</span>${p.subject ? `<span>${esc(p.subject)}</span>` : ""}</div>
+    <div class="meta">${answersFor(p.id).length ? '<span class="tag staff">Risposta del personale</span>' : ""}<span class="tag uni">${esc(p.uni)}</span><span class="tag">${esc(p.area)}</span>${p.toStaff ? '<span class="tag">Per docenti e personale</span>' : ""}${p.subject ? `<span>${esc(p.subject)}</span>` : ""}</div>
     <h3>${esc(p.title)}</h3>
     <p>${esc(p.body)}</p>
     <div class="meta"><span>${esc(S.names[p.authorId] || "Studente")}</span><span>· ${ago(p.createdAt)}</span>
@@ -553,13 +649,15 @@ function md(src) {
 }
 
 /* ------------------------------------------------------------------ render */
-const TITLES = { home: ["Università dell'Insubria", "Ciao!"], libretto: ["Carriera", "Libretto"], community: ["Tutti gli atenei italiani", "Community"], eventi: ["Varese · Como · Busto", "Eventi"], ai: ["Sempre disponibile", "Assistente"] };
+const TITLES = { home: ["Università dell'Insubria", "Ciao!"], libretto: ["Carriera", "Libretto"], community: ["Tutti gli atenei italiani", "Community"], eventi: ["Varese · Como · Busto", "Eventi"], ai: ["Sempre disponibile", "Assistente"], staff: ["Docenti e personale", "Area staff"] };
 function render(keepScroll) {
   const v = $("#view");
-  const views = { home: vHome, libretto: vLibretto, community: vCommunity, eventi: vEventi, ai: vAI };
+  const views = { home: vHome, libretto: vLibretto, community: vCommunity, eventi: vEventi, ai: vAI, staff: vStaff };
   const active = document.activeElement?.id;
   const sel = active && document.activeElement.selectionStart;
-  v.innerHTML = views[S.tab]();
+  v.innerHTML = vPinned() + views[S.tab]();
+  $('.tabbar [data-tab="staff"]').hidden = !S.canEdit;
+  $(".tabbar").classList.toggle("six", S.canEdit);
   if (!keepScroll) { v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); }
   const [eb, tt] = TITLES[S.tab];
   $("#top-eyebrow").textContent = eb;
@@ -599,6 +697,10 @@ function sheetProfile() {
       <div class="field"><label for="p-course">Corso di laurea</label><input id="p-course" placeholder="Es. Informatica" value="${esc(p.course)}"></div>
       <div class="two"><div class="field"><label for="p-type">Tipo</label><select id="p-type">${opt([["triennale", "Triennale · 180 CFU"], ["magistrale", "Magistrale · 120 CFU"], ["ciclo5", "Ciclo unico · 300 CFU"], ["ciclo6", "Ciclo unico · 360 CFU"]], p.courseType || "triennale")}</select></div>
       <div class="field"><label for="p-year">Anno</label><select id="p-year">${opt([["1", "1°"], ["2", "2°"], ["3", "3°"], ["4", "4°"], ["5", "5°"], ["6", "6°"], ["fc", "Fuori corso"]], p.year || "1")}</select></div></div>
+      ${S.canEdit ? `<div class="section-h" style="margin-top:6px"><h2 style="font-size:16px">Profilo personale universitario</h2></div>
+      <div class="two"><div class="field"><label for="p-srole">Ruolo</label><select id="p-srole"><option value="">Scegli…</option>${opt(STAFF_ROLES.map(r => [r, r]), p.staffRole)}</select></div>
+      <div class="field"><label for="p-sdep">Struttura</label><select id="p-sdep"><option value="">Scegli…</option>${opt([...DEPARTMENTS.map(d => [d.id, d.id]), ["Amministrazione", "Amministrazione"]], p.staffDep)}</select></div></div>
+      <span class="hint">Nelle risposte in incognito gli studenti vedono solo ruolo e struttura.</span>` : ""}
       <label class="check"><input type="checkbox" id="p-privacy" ${p.privacy ? "checked" : ""}><span>Ho letto l'informativa privacy e acconsento al trattamento dei dati per usare l'app.</span></label>
       <label class="check"><input type="checkbox" id="p-improve" ${p.improve ? "checked" : ""}><span>Facoltativo: uso dei miei dati in forma aggregata per migliorare suggerimenti e assistente.</span></label>
       <p class="hint" id="p-err" style="color:var(--bad)" hidden></p>
@@ -656,6 +758,7 @@ function sheetPost() {
       <div class="two"><div class="field"><label for="n-uni">Università</label><select id="n-uni">${UNIS.map(u => `<option ${u === (S.profile?.uni || UNIS[0]) ? "selected" : ""}>${esc(u)}</option>`).join("")}</select></div>
       <div class="field"><label for="n-area">Area</label><select id="n-area">${AREAS.map(a => `<option>${esc(a)}</option>`).join("")}</select></div></div>
       <div class="field"><label for="n-subject">Materia (facoltativa)</label><input id="n-subject" maxlength="80" placeholder="Es. Statistica"></div>
+      <label class="check"><input type="checkbox" id="n-staff"><span>Chiedi anche a docenti e personale dell'Insubria (appunti, materiale, curiosità)</span></label>
       <p class="hint" id="n-err" style="color:var(--bad)" hidden></p>
       <button class="btn primary">Pubblica</button>
     </form>`);
@@ -675,11 +778,19 @@ function sheetOpenPost(id) {
     <h2 style="margin-top:8px">${esc(p.title)}</h2>
     <div class="meta" style="margin-bottom:10px"><span>${esc(S.names[p.authorId] || "Studente")} · ${ago(p.createdAt)}</span></div>
     <div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(p.body)}</div>
-    ${p.authorId === S.uid ? `<button class="link-btn" style="color:var(--bad);font-size:13.5px" data-act="del-post" data-id="${p.id}">Elimina la mia domanda</button>` : ""}
-    <div class="section-h" style="margin-top:18px"><h2 style="font-size:17px">Risposte</h2></div>
+    ${p.authorId === S.uid ? `<button class="link-btn" style="color:var(--bad);font-size:13.5px" data-act="del-post" data-id="${p.id}">Elimina la mia domanda</button>` : S.canEdit ? `<button class="link-btn" style="color:var(--bad);font-size:13.5px" data-act="del-post" data-id="${p.id}">Rimuovi (moderazione)</button>` : ""}
+    <div id="staff-answers"></div>
+    ${S.canEdit ? `<form class="f" id="staff-answer-form" style="margin-top:14px;padding:14px;border-radius:var(--r-m);border:1px dashed color-mix(in srgb, var(--brand) 50%, transparent)">
+      <div class="field"><label for="sa-body">Risposta del personale</label><textarea id="sa-body" rows="4" maxlength="3000" placeholder="Rispondi alla richiesta: appunti, chiarimenti, dove trovare il materiale…"></textarea></div>
+      <label class="check"><input type="checkbox" id="sa-anon" checked><span>Rispondi in incognito. Gli studenti vedono solo "${esc(staffLabel())}". Il team staff vede chi ha risposto.</span></label>
+      <p class="hint" id="sa-err" style="color:var(--bad)" hidden></p>
+      <button class="btn primary">Pubblica risposta</button>
+    </form>` : ""}
+    <div class="section-h" style="margin-top:18px"><h2 style="font-size:17px">Risposte degli studenti</h2></div>
     <div id="replies"><p class="muted">Carico…</p></div>
     ${S.uid ? `<form class="composer" id="reply-form" style="position:static;margin-top:10px;border:1px solid var(--hair)"><textarea id="reply" rows="1" maxlength="2000" placeholder="Scrivi una risposta…" aria-label="Risposta"></textarea><button class="icon-btn" aria-label="Invia risposta">${icon("send")}</button></form>` : ""}
   `, () => { S.unsubReplies?.(); S.unsubReplies = null; S.openPost = null; });
+  drawStaffAnswers();
   if (S.db) {
     S.unsubReplies = S.db.collection(`posts/${id}/replies`).orderBy("createdAt").limit(200).onSnapshot(snap => {
       S.replies = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -687,6 +798,136 @@ function sheetOpenPost(id) {
       draw();
     }, () => draw());
   } else draw();
+}
+
+const answersFor = id => S.staffAnswers.filter(a => a.postId === id);
+const staffLabel = () => { const p = S.profile; return (p?.staffRole || "Personale universitario") + (p?.staffDep ? " · " + p.staffDep : ""); };
+function drawStaffAnswers() {
+  const box = $("#staff-answers");
+  if (!box || !S.openPost) return;
+  const list = answersFor(S.openPost);
+  box.innerHTML = list.map(a => `<div class="staff-answer">
+    <div class="meta"><span class="tag staff">${a.anon ? "Personale · in incognito" : "Personale"}</span><b style="color:var(--ink)">${esc(!a.anon && S.names[a.authorId] ? S.names[a.authorId] + " · " + a.byLabel : a.byLabel)}</b><span>· ${ago(a.createdAt)}</span></div>
+    <div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(a.body)}</div>
+    ${S.canEdit ? `<button class="link-btn" style="color:var(--bad);font-size:13px;justify-self:start" data-act="del-answer" data-id="${a.id}">Elimina risposta</button>` : ""}
+  </div>`).join("");
+  const named = list.filter(a => !a.anon && a.authorId && !(a.authorId in S.names));
+  if (named.length) resolveNames(named.map(a => a.authorId)).then(drawStaffAnswers);
+}
+
+/* ------------------------------------------------------------------ area staff */
+function vStaff() {
+  if (!S.canEdit) return `<div class="empty glass">${icon("shield")}<h3>Area riservata al personale</h3><p class="muted" style="margin:0;max-width:34ch">Docenti e personale dell'ateneo accedono qui con il permesso di Editor sull'app.</p></div>`;
+  const subs = [["panoramica", "Panoramica"], ["richieste", "Richieste"], ["comunicazioni", "Comunicazioni"], ["materiali", "Materiali"], ["faq", "Assistente AI"], ["eventi", "Eventi"]];
+  const body = { panoramica: vStaffHome, richieste: vStaffInbox, comunicazioni: vStaffAnns, materiali: vStaffMaterials, faq: vStaffFaq, eventi: vStaffEvents }[S.staffSub]();
+  return `${S.profile?.staffRole ? "" : `<div class="banner glass"><div><b>Completa il profilo staff.</b> Ruolo e dipartimento compaiono nelle risposte in incognito al posto del nome.</div><button class="btn primary small" data-act="profile">Completa</button></div>`}
+  <div class="chips" role="group" aria-label="Strumenti staff">${subs.map(([k, t]) => `<button class="chip" data-sub="${k}" aria-pressed="${k === S.staffSub}">${t}</button>`).join("")}</div>
+  ${body}`;
+}
+const openRequests = () => S.posts.filter(p => p.toStaff && !answersFor(p.id).length);
+function vStaffHome() {
+  const counts = {};
+  S.posts.forEach(p => (counts[p.area] = (counts[p.area] || 0) + 1));
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const max = top[0]?.[1] || 1;
+  const anns = activeAnns();
+  return `
+  <section class="hero glass">
+    <span class="eyebrow">Docenti e personale</span>
+    <h1 style="font-size:26px">${openRequests().length ? `<em>${openRequests().length}</em> richiest${openRequests().length === 1 ? "a aspetta" : "e aspettano"} una risposta` : "Nessuna richiesta in attesa"}</h1>
+    <div class="kpis four">
+      <div class="kpi"><b>${S.staffAnswers.length}</b><span>risposte del personale</span></div>
+      <div class="kpi"><b>${S.materials.length}</b><span>materiali pubblicati</span></div>
+      <div class="kpi"><b>${anns.length}</b><span>comunicazioni attive</span></div>
+      <div class="kpi"><b>${anns.filter(a => a.level === "urgente").length}</b><span>urgenti in corso</span></div>
+    </div>
+  </section>
+  <div class="tile-grid">
+    <button class="tile glass" style="border:1px solid var(--glass-edge);cursor:pointer" data-act="add-ann" data-level="urgente">${icon("megaphone")}Avviso urgente</button>
+    <button class="tile glass" style="border:1px solid var(--glass-edge);cursor:pointer" data-act="add-material">${icon("upload")}Carica materiale</button>
+    <button class="tile glass" style="border:1px solid var(--glass-edge);cursor:pointer" data-sub="richieste">${icon("chat")}Rispondi</button>
+  </div>
+  ${top.length ? `<section class="panel glass stack"><h2 style="font-size:16px">Di cosa si parla in community</h2><div class="bars">${top.map(([a, n]) => `<div><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a)}</span><i style="width:${Math.max(6, n / max * 100)}%"></i><b>${n}</b></div>`).join("")}</div></section>` : ""}
+  <section class="panel glass stack"><h2 style="font-size:16px">Attività del team</h2>
+    ${S.staffLog.length ? `<div class="activity">${S.staffLog.slice(0, 8).map(l => `<div><b>${esc(S.names[l.authorId] || "Un collega")}</b> ha risposto${l.anon ? " in incognito" : ""} a "${esc(l.postTitle || "una domanda")}" <span class="muted">· ${ago(l.createdAt)}</span></div>`).join("")}</div>` : `<p class="muted" style="margin:0;font-size:14px">Qui compare chi risponde alle richieste, anche in incognito. Lo vede solo il personale.</p>`}
+  </section>`;
+}
+function vStaffInbox() {
+  const isIns = p => p.uni === UNIS[0];
+  const lists = {
+    aperte: openRequests(),
+    insubria: S.posts.filter(p => isIns(p) && !answersFor(p.id).length),
+    tutte: S.posts,
+  };
+  const list = lists[S.inboxF];
+  return `<div class="chips" role="group" aria-label="Filtro richieste">${[["aperte", `Rivolte al personale · ${lists.aperte.length}`], ["insubria", `Insubria senza risposta · ${lists.insubria.length}`], ["tutte", "Tutte"]].map(([k, t]) => `<button class="chip" data-inbox="${k}" aria-pressed="${k === S.inboxF}">${t}</button>`).join("")}</div>
+  <p class="hint" style="margin:0">Apri una domanda per rispondere. La risposta in incognito mostra agli studenti solo ruolo e dipartimento.</p>
+  ${list.length ? list.map(vPost).join("") : `<div class="empty glass">${icon("chat")}<h3>Tutto in ordine</h3><p class="muted" style="margin:0">Nessuna richiesta in questa lista.</p></div>`}`;
+}
+function vStaffAnns() {
+  const all = activeAnns(true);
+  return `<button class="btn primary" data-act="add-ann">${icon("megaphone", 'width="18" height="18"')}Nuova comunicazione</button>
+  <p class="hint" style="margin:0">Le comunicazioni fissate in cima compaiono sopra ogni schermata dell'app. Quelle urgenti non si possono nascondere fino alla scadenza.</p>
+  ${all.length ? all.map(a => vAnn(a, true)).join("") : `<div class="empty glass">${icon("megaphone")}<h3>Nessuna comunicazione</h3><p class="muted" style="margin:0;max-width:34ch">Lezioni annullate, cambi d'aula, chiusure, scadenze di segreteria: pubblicale qui.</p></div>`}`;
+}
+function vStaffMaterials() {
+  return `<button class="btn primary" data-act="add-material">${icon("upload", 'width="18" height="18"')}Carica materiale</button>
+  ${S.materials.length ? S.materials.map(m => vMaterialItem(m, true)).join("") : `<div class="empty glass">${icon("book")}<h3>Nessun materiale</h3><p class="muted" style="margin:0;max-width:34ch">Carica PDF, immagini o video, oppure inserisci un link all'e-learning.</p></div>`}`;
+}
+function vStaffFaq() {
+  return `<section class="panel glass"><b>Risposte verificate per l'assistente</b><p class="muted" style="margin:4px 0 0;font-size:14px">Quello che scrivi qui l'Assistente AI lo usa come fonte prioritaria quando gli studenti fanno domande.</p></section>
+  <button class="btn primary" data-act="add-faq">${icon("plus", 'width="18" height="18"')}Nuova risposta verificata</button>
+  ${S.faq.length ? S.faq.map(f => `<article class="panel glass stack" style="gap:4px;padding:14px 16px"><b>${esc(f.q)}</b><div class="muted" style="font-size:14px;white-space:pre-wrap">${esc(f.a)}</div>${f.link ? `<a href="${esc(f.link)}" target="_blank" rel="noopener" style="font-size:13.5px">${esc(f.link)}</a>` : ""}<span class="hint">${esc(f.byLabel || "")} · ${ago(f.createdAt)}</span><button class="link-btn" style="color:var(--bad);font-size:13px;justify-self:start" data-act="del-faq" data-id="${f.id}">Elimina</button></article>`).join("") : `<div class="empty glass">${icon("help")}<h3>Nessuna risposta verificata</h3><p class="muted" style="margin:0;max-width:34ch">Esempio: orari della segreteria di Como, come richiedere un certificato, regole per il tirocinio.</p></div>`}`;
+}
+function vStaffEvents() {
+  const up = S.events.filter(e => e.date >= todayISO());
+  return `<button class="btn primary" data-act="add-event">${icon("plus", 'width="18" height="18"')}Pubblica un evento</button>${up.length ? up.map(vEvent).join("") : `<div class="empty glass">${icon("cal")}<h3>Nessun evento in calendario</h3></div>`}`;
+}
+
+function sheetAnn(level) {
+  const opts = [["tutti", "Tutti gli studenti"], ...CITIES.map(c => [c, "Sede di " + c]), ...DEPARTMENTS.map(d => [d.id, d.name])];
+  openSheet(`
+    <h2>Nuova comunicazione</h2>
+    <form class="f" id="ann-form" novalidate>
+      <div class="two"><div class="field"><label for="a-level">Priorità</label><select id="a-level">${Object.keys(LVL).map(l => `<option value="${l}" ${l === (level || "info") ? "selected" : ""}>${LVL_LABEL[l]}</option>`).join("")}</select></div>
+      <div class="field"><label for="a-cat">Categoria</label><select id="a-cat">${ANN_CATS.map(c => `<option>${c}</option>`).join("")}</select></div></div>
+      <div class="field"><label for="a-title">Titolo</label><input id="a-title" maxlength="120" required placeholder="Es. Lezione di Fisica di giovedì annullata"></div>
+      <div class="field"><label for="a-body">Testo</label><textarea id="a-body" rows="4" maxlength="1500"></textarea></div>
+      <div class="field"><label for="a-aud">Destinatari</label><select id="a-aud">${opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
+      <div class="two"><div class="field"><label for="a-exp">Scade il</label><input id="a-exp" type="date" min="${todayISO()}"></div>
+      <div class="field"><label for="a-link">Link (facoltativo)</label><input id="a-link" type="url" placeholder="https://www.uninsubria.it/…"></div></div>
+      <label class="check"><input type="checkbox" id="a-pin" ${level === "urgente" ? "checked" : ""}><span>Fissa in cima a tutte le schermate dell'app</span></label>
+      <p class="hint" id="a-err" style="color:var(--bad)" hidden></p>
+      <button class="btn primary">Pubblica comunicazione</button>
+    </form>`);
+}
+function sheetMaterial() {
+  openSheet(`
+    <h2>Carica materiale</h2>
+    <p class="muted" style="margin:0;font-size:13.5px">PDF, immagini, video o testo fino a 20 MB. Per Word e PowerPoint esporta prima in PDF, oppure inserisci un link.</p>
+    <form class="f" id="material-form" novalidate>
+      ${S.assets ? `<div class="field"><label for="m-file">File</label><input id="m-file" type="file" accept=".pdf,image/*,video/*,.txt,.md,.csv"></div>` : `<p class="hint">Il caricamento di file non è disponibile in questa vista: puoi inserire un link.</p>`}
+      <div class="field"><label for="m-link">Oppure link (e-learning, cartella condivisa)</label><input id="m-link" type="url" placeholder="https://elearning.uninsubria.it/…"></div>
+      <div class="field"><label for="m-title">Titolo</label><input id="m-title" maxlength="120" required placeholder="Es. Slide lezione 5: equazioni differenziali"></div>
+      <div class="two"><div class="field"><label for="m-kind">Tipo</label><select id="m-kind">${MAT_KINDS.map(k => `<option>${k}</option>`).join("")}</select></div>
+      <div class="field"><label for="m-dep">Dipartimento</label><select id="m-dep">${DEPARTMENTS.map(d => `<option value="${d.id}" ${d.id === S.profile?.staffDep ? "selected" : ""}>${d.id}</option>`).join("")}</select></div></div>
+      <div class="field"><label for="m-course">Insegnamento</label><input id="m-course" maxlength="80" placeholder="Es. Analisi matematica II"></div>
+      <div class="field"><label for="m-desc">Note (facoltative)</label><input id="m-desc" maxlength="200"></div>
+      <p class="hint" id="m-err" style="color:var(--bad)" hidden></p>
+      <button class="btn primary" id="m-submit">Pubblica materiale</button>
+    </form>`);
+}
+function sheetFaq() {
+  openSheet(`
+    <h2>Risposta verificata</h2>
+    <p class="muted" style="margin:0;font-size:13.5px">L'assistente la userà per rispondere agli studenti.</p>
+    <form class="f" id="faq-form" novalidate>
+      <div class="field"><label for="q-q">Domanda tipica</label><input id="q-q" maxlength="200" required placeholder="Es. Quali sono gli orari della segreteria studenti di Como?"></div>
+      <div class="field"><label for="q-a">Risposta</label><textarea id="q-a" rows="5" maxlength="2000" required></textarea></div>
+      <div class="field"><label for="q-link">Pagina ufficiale (facoltativa)</label><input id="q-link" type="url" placeholder="https://www.uninsubria.it/…"></div>
+      <p class="hint" id="q-err" style="color:var(--bad)" hidden></p>
+      <button class="btn primary">Salva risposta</button>
+    </form>`);
 }
 
 function sheetEvent() {
@@ -720,7 +961,7 @@ const ASSISTANT_RULES = () => {
 
 Il tuo compito: aiutare lo studente a trovare informazioni sul mondo universitario e guidarlo passo per passo verso la pagina ufficiale giusta. Non hai accesso a internet: non inventare date, scadenze, importi di tasse, nomi di docenti o regolamenti. Quando servono dati precisi, spiega dove trovarli e indica il link ufficiale qui sotto. Se non sai, dillo e suggerisci InfoStudenti.
 
-Fonti ufficiali che puoi citare (usa solo questi link):
+Fonti ufficiali che puoi citare (usa solo questi link e quelli delle risposte verificate più sotto):
 - Sito di ateneo: https://www.uninsubria.it
 - Servizi web Esse3 (iscrizione appelli, libretto, tasse, piano carriera): https://www.uninsubria.it/servizi/tutti-i-servizi/servizi-web-esse3
 - InfoStudenti, servizio informazioni: https://www.uninsubria.it/servizi/tutti-i-servizi/infostudenti-servizio-informazioni-gli-studenti
@@ -738,7 +979,7 @@ Dipartimenti: ${DEPARTMENTS.map(d => `${d.name} (${d.id}, ${d.city})`).join("; "
 
 Nell'app lo studente ha anche: Libretto (medie, CFU, base di laurea calcolata come media ponderata ÷ 30 × 110, simulatore del prossimo voto), Community con tutti gli atenei italiani, Eventi. Puoi rimandarlo a queste sezioni.
 
-Profilo dello studente: ${p ? `${p.firstName}, ${p.course || "corso non indicato"}${dep ? `, dipartimento di ${dep.name} (${dep.city})` : ""}, anno ${p.year || "?"}, ${p.uni || "Insubria"}.` : "non registrato."} Libretto${S.demo ? " (dati di esempio)" : ""}: ${st.cfu} CFU su ${st.target}, media ponderata ${st.pond ? st.pond.toFixed(2) : "n.d."}.`;
+${S.faq.length ? `Risposte verificate dal personale dell'ateneo (hanno la priorità su tutto il resto; puoi citarne i link):\n${S.faq.slice(0, 40).map(f => `- D: ${f.q}\n  R: ${f.a}${f.link ? " (" + f.link + ")" : ""}`).join("\n")}\n\n` : ""}${activeAnns().length ? `Comunicazioni attive dell'ateneo per questo studente:\n${activeAnns().slice(0, 10).map(a => `- [${LVL_LABEL[a.level]}] ${a.title}${a.body ? ": " + a.body.slice(0, 200) : ""}`).join("\n")}\n\n` : ""}Profilo dello studente: ${p ? `${p.firstName}, ${p.course || "corso non indicato"}${dep ? `, dipartimento di ${dep.name} (${dep.city})` : ""}, anno ${p.year || "?"}, ${p.uni || "Insubria"}.` : "non registrato."} Libretto${S.demo ? " (dati di esempio)" : ""}: ${st.cfu} CFU su ${st.target}, media ponderata ${st.pond ? st.pond.toFixed(2) : "n.d."}.`;
 };
 
 const SAMPLE_ERR = { not_granted: "Per usare l'assistente consenti all'app di usare Claude.", sampling_disabled: "L'assistente non è disponibile per questo account.", rate_limited: "Troppe richieste ravvicinate: riprova tra qualche minuto.", session_expired: "Sessione scaduta: accedi di nuovo a Claude.", refused: "Non posso rispondere a questa richiesta. Prova a riformularla.", prompt_too_large: "La conversazione è troppo lunga: iniziane una nuova." };
@@ -782,6 +1023,14 @@ document.addEventListener("click", async ev => {
   if (goBtn) return go(goBtn.dataset.tabGo);
   const askBtn = ev.target.closest("[data-ask]");
   if (askBtn) return ask(askBtn.dataset.ask);
+  const seg = ev.target.closest("[data-seg]");
+  if (seg) { S.commSeg = seg.dataset.seg; return render(true); }
+  const md_ = ev.target.closest("[data-matdep]");
+  if (md_) { S.matDep = md_.dataset.matdep; return render(true); }
+  const sub = ev.target.closest("[data-sub]");
+  if (sub) { S.staffSub = sub.dataset.sub; return render(); }
+  const inb = ev.target.closest("[data-inbox]");
+  if (inb) { S.inboxF = inb.dataset.inbox; return render(true); }
   const area = ev.target.closest("[data-area]");
   if (area) { S.filter.area = area.dataset.area; return render(true); }
   const city = ev.target.closest("[data-city]");
@@ -797,6 +1046,11 @@ document.addEventListener("click", async ev => {
   if (!a) return;
   const act = a.dataset.act, id = a.dataset.id;
   if (act === "scrim" && ev.target !== a) return;
+  if (act.startsWith("del-") && a.dataset.armed !== "1") {
+    a.dataset.armed = "1"; a.dataset.label = a.textContent; a.textContent = "Tocca di nuovo per confermare";
+    setTimeout(() => { if (a.isConnected) { a.dataset.armed = ""; a.textContent = a.dataset.label; } }, 3500);
+    return;
+  }
   switch (act) {
     case "scrim": case "close": closeSheet(); break;
     case "profile": sheetProfile(); break;
@@ -815,6 +1069,19 @@ document.addEventListener("click", async ev => {
     case "del-post": try { await S.db.doc(`posts/${id}`).delete(); closeSheet(); toast("Domanda eliminata"); } catch { toast("Non sono riuscito a eliminarla"); } break;
     case "add-event": sheetEvent(); break;
     case "del-event": try { await S.db.doc(`events/${id}`).delete(); toast("Evento eliminato"); } catch { toast("Non sono riuscito a eliminarlo"); } break;
+    case "add-ann": sheetAnn(a.dataset.level); break;
+    case "pin-ann": { const x = S.anns.find(y => y.id === id); if (x) try { await S.db.doc(`announcements/${id}`).update({ pinned: !x.pinned }); } catch { toast("Modifica non salvata"); } break; }
+    case "del-ann": try { await S.db.doc(`announcements/${id}`).delete(); toast("Comunicazione eliminata"); } catch { toast("Non sono riuscito a eliminarla"); } break;
+    case "dismiss-ann": S.dismissed = [...S.dismissed, id]; ls.set("dismissed", S.dismissed); render(true); break;
+    case "add-material": sheetMaterial(); break;
+    case "del-material": {
+      const m = S.materials.find(x => x.id === id);
+      try { await S.db.doc(`materials/${id}`).delete(); if (m?.assetId && S.assets) S.assets.delete(m.assetId).catch(() => {}); toast("Materiale eliminato"); } catch { toast("Non sono riuscito a eliminarlo"); }
+      break;
+    }
+    case "add-faq": sheetFaq(); break;
+    case "del-faq": try { await S.db.doc(`faq/${id}`).delete(); toast("Risposta eliminata"); } catch { toast("Non sono riuscito a eliminarla"); } break;
+    case "del-answer": try { await S.db.doc(`staffAnswers/${id}`).delete(); toast("Risposta eliminata"); } catch { toast("Non sono riuscito a eliminarla"); } break;
     case "stop": S.ctl?.abort(); break;
     case "reset-chat": S.ctl?.abort(); S.chat = []; render(); break;
   }
@@ -826,6 +1093,7 @@ document.addEventListener("keydown", ev => {
 });
 document.addEventListener("input", ev => {
   const t = ev.target;
+  if (t.id === "mq") { S.matQ = t.value; clearTimeout(S.qT); S.qT = setTimeout(() => render(true), 160); }
   if (t.id === "q") { S.filter.q = t.value; clearTimeout(S.qT); S.qT = setTimeout(() => render(true), 160); }
   if (t.id === "p-email") $("#email-hint").innerHTML = emailHint(t.value);
   if (t.id === "sim") { S.simGrade = Number(t.value); const plan = S.exams.find(e => e.status === "planned"); if (plan) $("#sim-out").innerHTML = simOut(stats(), plan, S.simGrade); }
@@ -840,7 +1108,7 @@ document.addEventListener("submit", async ev => {
   const err = (id, msg) => { const e = $("#" + id); e.textContent = msg; e.hidden = false; };
   if (f.id === "ask-form") { const v = val("ask"); $("#ask").value = ""; ask(v); }
   if (f.id === "profile-form") {
-    const p = { firstName: val("p-first"), lastName: val("p-last"), email: val("p-email"), phone: val("p-phone"), uni: val("p-uni"), dep: val("p-dep"), course: val("p-course"), courseType: val("p-type"), year: val("p-year"), privacy: $("#p-privacy").checked, improve: $("#p-improve").checked, updatedAt: Date.now() };
+    const p = { firstName: val("p-first"), lastName: val("p-last"), email: val("p-email"), phone: val("p-phone"), uni: val("p-uni"), dep: val("p-dep"), course: val("p-course"), courseType: val("p-type"), year: val("p-year"), privacy: $("#p-privacy").checked, improve: $("#p-improve").checked, staffRole: $("#p-srole")?.value || S.profile?.staffRole || "", staffDep: $("#p-sdep")?.value || S.profile?.staffDep || "", updatedAt: Date.now() };
     if (!p.firstName || !p.lastName) return err("p-err", "Inserisci nome e cognome.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) return err("p-err", "Controlla l'email: manca la @ o il dominio.");
     if (p.phone && !/^\+?[\d\s]{8,16}$/.test(p.phone)) return err("p-err", "Il cellulare può contenere solo cifre, spazi e il prefisso +.");
@@ -865,7 +1133,7 @@ document.addEventListener("submit", async ev => {
     if (title.length < 6) return err("n-err", "Il titolo deve avere almeno 6 caratteri.");
     if (body.length < 10) return err("n-err", "Aggiungi qualche dettaglio in più nel testo.");
     try {
-      await S.db.collection("posts").add({ title, body, uni: val("n-uni"), area: val("n-area"), subject: val("n-subject"), authorId: S.uid, createdAt: Date.now(), votes: {} });
+      await S.db.collection("posts").add({ title, body, uni: val("n-uni"), area: val("n-area"), subject: val("n-subject"), toStaff: $("#n-staff").checked, authorId: S.uid, createdAt: Date.now(), votes: {} });
       closeSheet(); S.filter.uni = val("n-uni") || S.filter.uni; toast("Domanda pubblicata");
     } catch (e) { err("n-err", e?.code === "quota_exceeded" ? "La community è piena: contatta gli amministratori." : "Non hai i permessi per pubblicare qui. Chiedi accesso come Contributor."); }
   }
@@ -874,6 +1142,52 @@ document.addEventListener("submit", async ev => {
     if (!body || !S.openPost) return;
     $("#reply").value = "";
     try { await S.db.collection(`posts/${S.openPost}/replies`).add({ body, authorId: S.uid, createdAt: Date.now() }); } catch { toast("Risposta non inviata. Riprova."); $("#reply").value = body; }
+  }
+  if (f.id === "staff-answer-form") {
+    const body = val("sa-body"), anon = $("#sa-anon").checked, post = S.posts.find(x => x.id === S.openPost);
+    if (body.length < 5) return err("sa-err", "Scrivi una risposta di almeno qualche parola.");
+    const data = { postId: S.openPost, body, anon, byLabel: staffLabel(), createdAt: Date.now() };
+    if (!anon) data.authorId = S.uid;
+    try {
+      const ref = await S.db.collection("staffAnswers").add(data);
+      S.db.collection("staffLog").add({ answerId: ref.id, postId: S.openPost, postTitle: post?.title || "", authorId: S.uid, anon, createdAt: Date.now() }).catch(() => {});
+      $("#sa-body").value = ""; $("#sa-err").hidden = true; toast(anon ? "Risposta pubblicata in incognito" : "Risposta pubblicata");
+    } catch { err("sa-err", "Solo il personale con permesso di Editor può rispondere qui."); }
+  }
+  if (f.id === "ann-form") {
+    const title = val("a-title"), link = val("a-link");
+    if (title.length < 4) return err("a-err", "Scrivi un titolo chiaro.");
+    if (link && !/^https:\/\//.test(link)) return err("a-err", "Il link deve iniziare con https://");
+    try {
+      await S.db.collection("announcements").add({ title, body: val("a-body"), level: val("a-level"), category: val("a-cat"), audience: val("a-aud"), expiresAt: val("a-exp"), link, pinned: $("#a-pin").checked, byLabel: staffLabel(), createdAt: Date.now() });
+      closeSheet(); toast("Comunicazione pubblicata");
+    } catch { err("a-err", "Solo il personale con permesso di Editor può pubblicare comunicazioni."); }
+  }
+  if (f.id === "material-form") {
+    const file = $("#m-file")?.files?.[0], link = val("m-link"), title = val("m-title");
+    if (!file && !link) return err("m-err", "Scegli un file oppure inserisci un link.");
+    if (link && !/^https:\/\//.test(link)) return err("m-err", "Il link deve iniziare con https://");
+    if (!title) return err("m-err", "Dai un titolo al materiale.");
+    const btn = $("#m-submit"); btn.disabled = true; btn.textContent = file ? "Carico il file…" : "Pubblico…";
+    try {
+      const doc = { title, kind: val("m-kind"), dep: val("m-dep"), course: val("m-course"), desc: val("m-desc"), byLabel: staffLabel(), createdAt: Date.now() };
+      if (file) {
+        const up = await S.assets.upload(file);
+        Object.assign(doc, { assetId: up.id, size: up.sizeBytes, contentType: up.contentType, name: file.name });
+      } else doc.link = link;
+      await S.db.collection("materials").add(doc);
+      closeSheet(); toast("Materiale pubblicato");
+    } catch (e) {
+      btn.disabled = false; btn.textContent = "Pubblica materiale";
+      err("m-err", { unsupported_type: "Formato non supportato: esporta in PDF.", too_large: "Il file supera i 20 MB.", quota_exceeded: "Spazio di archiviazione esaurito: elimina materiali vecchi." }[e?.code] || "Caricamento non riuscito. Riprova.");
+    }
+  }
+  if (f.id === "faq-form") {
+    const q = val("q-q"), a = val("q-a"), link = val("q-link");
+    if (!q || !a) return err("q-err", "Servono domanda e risposta.");
+    if (link && !/^https:\/\//.test(link)) return err("q-err", "Il link deve iniziare con https://");
+    try { await S.db.collection("faq").add({ q, a, link, byLabel: staffLabel(), createdAt: Date.now() }); closeSheet(); toast("Risposta verificata salvata"); }
+    catch { err("q-err", "Solo il personale con permesso di Editor può salvare risposte verificate."); }
   }
   if (f.id === "event-form") {
     const title = val("v-title"), date = val("v-date"), link = val("v-link");
@@ -887,7 +1201,7 @@ document.addEventListener("submit", async ev => {
 /* ------------------------------------------------------------------ avvio */
 (function boot() {
   try { const t = localStorage.getItem("ih_tab"); if (t && TITLES[t]) S.tab = t; } catch {}
-  if (["home", "libretto", "community", "eventi", "ai"].includes(location.hash.slice(1))) S.tab = location.hash.slice(1);
+  if (["home", "libretto", "community", "eventi", "ai", "staff"].includes(location.hash.slice(1))) S.tab = location.hash.slice(1);
   const lp = ls.get("profile"), ll = ls.get("libretto");
   if (lp) S.profile = lp;
   if (ll?.exams) { S.exams = ll.exams; S.demo = false; }
@@ -896,6 +1210,8 @@ document.addEventListener("submit", async ev => {
   const C = window.claude;
   if (!C?.use) { S.sample = null; S.postsState = "offline"; S.eventsState = "offline"; render(true); return; }
   C.use("sample").then(s => { S.sample = s; if (S.tab === "ai") render(true); });
+  C.use("assets").then(a => { S.assets = a; });
+  S.dismissed = ls.get("dismissed") || [];
   Promise.all([C.use("db"), C.use("user")]).then(async ([db, user]) => {
     S.db = db; S.user = user;
     if (user) { S.uid = await user.id(); S.canEdit = await user.canEdit().catch(() => false); }
@@ -916,6 +1232,16 @@ document.addEventListener("submit", async ev => {
       S.eventsState = "ready";
       if (S.tab === "eventi" || S.tab === "home") render(true);
     }, () => { S.eventsState = "offline"; });
+    const live = (col, field, dir, key, after) => db.collection(col).orderBy(field, dir).limit(300).onSnapshot(snap => {
+      S[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      after?.();
+      if (S.tab !== "ai") render(true);
+    }, () => {});
+    live("announcements", "createdAt", "desc", "anns");
+    live("materials", "createdAt", "desc", "materials");
+    live("faq", "createdAt", "desc", "faq");
+    live("staffAnswers", "createdAt", "asc", "staffAnswers", drawStaffAnswers);
+    if (S.canEdit) live("staffLog", "createdAt", "desc", "staffLog", () => resolveNames(S.staffLog.map(l => l.authorId)).then(() => S.tab === "staff" && render(true)));
     render(true);
   });
 })();
