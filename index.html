@@ -314,6 +314,7 @@ const S = {
   anns: [], materials: [], staffAnswers: [], faq: [], staffLog: [], assets: null,
   commSeg: "domande", matDep: "Tutti", staffSub: "panoramica", inboxF: "aperte",
   dismissed: [],
+  allPosts: [], allReplies: [], voteCount: {}, myVotes: {}, hidden: new Set(), reviewed: new Set(), banned: new Map(), reports: [],
 };
 const LVL = { urgente: 0, importante: 1, info: 2 };
 const LVL_LABEL = { urgente: "Urgente", importante: "Importante", info: "Avviso" };
@@ -572,7 +573,8 @@ function vQuestions() {
     <select id="uni-filter" aria-label="Università">${["Tutte", ...UNIS].map(u => `<option ${u === f.uni ? "selected" : ""}>${esc(u)}</option>`).join("")}</select>
   </div>
   <div class="chips" role="group" aria-label="Area">${["Tutte", ...AREAS].map(a => `<button class="chip" data-area="${esc(a)}" aria-pressed="${a === f.area}">${esc(a)}</button>`).join("")}</div>
-  <div class="row" style="justify-content:space-between"><span class="muted" style="font-size:13px">${S.postsState === "ready" ? `${list.length} discussion${list.length === 1 ? "e" : "i"}` : S.postsState === "offline" ? "Community non disponibile in questa anteprima" : "Carico le discussioni…"}</span>${S.postsState === "ready" ? `<button class="btn primary small" data-act="new-post">${icon("plus", 'width="16" height="16"')}Nuova domanda</button>` : ""}</div>
+  <div class="row" style="justify-content:space-between"><span class="muted" style="font-size:13px">${S.postsState === "ready" ? `${list.length} discussion${list.length === 1 ? "e" : "i"}` : S.postsState === "offline" ? "Community non disponibile in questa anteprima" : "Carico le discussioni…"}</span>${S.postsState === "ready" && !S.banned.has(S.uid) ? `<button class="btn primary small" data-act="new-post">${icon("plus", 'width="16" height="16"')}Nuova domanda</button>` : ""}</div>
+  ${S.banned.has(S.uid) ? `<div class="banner"><div>Il tuo account è sospeso dai moderatori: puoi leggere ma non scrivere.</div></div>` : ""}
   ${list.length ? list.map(vPost).join("") : `
     <div class="empty glass">${icon("chat")}
       <h3>${S.posts.length ? "Nessun risultato con questi filtri" : "Ancora nessuna discussione"}</h3>
@@ -581,10 +583,10 @@ function vQuestions() {
     </div>`}`;
 }
 function vPost(p) {
-  const votes = Object.values(p.votes || {}).filter(Boolean).length;
-  const mine = S.uid && p.votes?.[S.uid];
+  const votes = S.voteCount[p.id] || 0;
+  const mine = S.myVotes[p.id];
   return `<article class="post glass" data-act="open-post" data-id="${p.id}" tabindex="0">
-    <div class="meta">${answersFor(p.id).length ? '<span class="tag staff">Risposta del personale</span>' : ""}<span class="tag uni">${esc(p.uni)}</span><span class="tag">${esc(p.area)}</span>${p.toStaff ? '<span class="tag">Per docenti e personale</span>' : ""}${p.subject ? `<span>${esc(p.subject)}</span>` : ""}</div>
+    <div class="meta">${S.canEdit && S.hidden.has(p.id) ? '<span class="tag" style="color:var(--bad)">Nascosta</span>' : ""}${S.canEdit && S.banned.has(p.authorId) ? '<span class="tag" style="color:var(--bad)">Autore sospeso</span>' : ""}${answersFor(p.id).length ? '<span class="tag staff">Risposta del personale</span>' : ""}<span class="tag uni">${esc(p.uni)}</span><span class="tag">${esc(p.area)}</span>${p.toStaff ? '<span class="tag">Per docenti e personale</span>' : ""}${p.subject ? `<span>${esc(p.subject)}</span>` : ""}</div>
     <h3>${esc(p.title)}</h3>
     <p>${esc(p.body)}</p>
     <div class="meta"><span>${esc(S.names[p.authorId] || "Studente")}</span><span>· ${ago(p.createdAt)}</span>
@@ -767,18 +769,18 @@ function sheetPost() {
 function sheetOpenPost(id) {
   const p = S.posts.find(x => x.id === id);
   if (!p) return;
-  S.openPost = id; S.replies = [];
-  const draw = () => {
-    const box = $("#replies");
-    if (!box) return;
-    box.innerHTML = S.replies.length ? S.replies.map(r => `<div class="reply"><div class="meta"><b style="color:var(--ink)">${esc(S.names[r.authorId] || "Studente")}</b><span>· ${ago(r.createdAt)}</span></div><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(r.body)}</div></div>`).join("") : `<p class="muted" style="margin:6px 0">Ancora nessuna risposta.</p>`;
-  };
+  S.openPost = id;
+  const mod = S.canEdit && p.authorId !== S.uid ? `<div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">
+      <button class="btn ghost small" data-act="${S.hidden.has(p.id) ? "restore" : "hide"}" data-id="${p.id}">${S.hidden.has(p.id) ? "Ripristina domanda" : "Nascondi domanda"}</button>
+      <button class="btn ghost small" style="color:var(--bad)" data-act="${S.banned.has(p.authorId) ? "unban" : "ban"}" data-id="${p.authorId}">${S.banned.has(p.authorId) ? "Riattiva autore" : "Sospendi autore"}</button>
+    </div>` : "";
   openSheet(`
     <div class="meta"><span class="tag uni">${esc(p.uni)}</span><span class="tag">${esc(p.area)}</span>${p.subject ? `<span>${esc(p.subject)}</span>` : ""}</div>
     <h2 style="margin-top:8px">${esc(p.title)}</h2>
     <div class="meta" style="margin-bottom:10px"><span>${esc(S.names[p.authorId] || "Studente")} · ${ago(p.createdAt)}</span></div>
     <div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(p.body)}</div>
-    ${p.authorId === S.uid ? `<button class="link-btn" style="color:var(--bad);font-size:13.5px" data-act="del-post" data-id="${p.id}">Elimina la mia domanda</button>` : S.canEdit ? `<button class="link-btn" style="color:var(--bad);font-size:13.5px" data-act="del-post" data-id="${p.id}">Rimuovi (moderazione)</button>` : ""}
+    ${p.authorId === S.uid ? `<button class="link-btn" style="color:var(--bad);font-size:13.5px" data-act="del-post" data-id="${p.id}">Elimina la mia domanda</button>` : S.uid && !S.canEdit ? `<button class="link-btn" style="color:var(--ink-soft);font-size:13px" data-act="report" data-id="${p.id}">Segnala ai moderatori</button>` : ""}
+    ${mod}
     <div id="staff-answers"></div>
     ${S.canEdit ? `<form class="f" id="staff-answer-form" style="margin-top:14px;padding:14px;border-radius:var(--r-m);border:1px dashed color-mix(in srgb, var(--brand) 50%, transparent)">
       <div class="field"><label for="sa-body">Risposta del personale</label><textarea id="sa-body" rows="4" maxlength="3000" placeholder="Rispondi alla richiesta: appunti, chiarimenti, dove trovare il materiale…"></textarea></div>
@@ -788,16 +790,41 @@ function sheetOpenPost(id) {
     </form>` : ""}
     <div class="section-h" style="margin-top:18px"><h2 style="font-size:17px">Risposte degli studenti</h2></div>
     <div id="replies"><p class="muted">Carico…</p></div>
-    ${S.uid ? `<form class="composer" id="reply-form" style="position:static;margin-top:10px;border:1px solid var(--hair)"><textarea id="reply" rows="1" maxlength="2000" placeholder="Scrivi una risposta…" aria-label="Risposta"></textarea><button class="icon-btn" aria-label="Invia risposta">${icon("send")}</button></form>` : ""}
-  `, () => { S.unsubReplies?.(); S.unsubReplies = null; S.openPost = null; });
+    ${S.uid && !S.banned.has(S.uid) ? `<form class="composer" id="reply-form" style="position:static;margin-top:10px;border:1px solid var(--hair)"><textarea id="reply" rows="1" maxlength="2000" placeholder="Scrivi una risposta…" aria-label="Risposta"></textarea><button class="icon-btn" aria-label="Invia risposta">${icon("send")}</button></form>` : ""}
+  `, () => { S.openPost = null; });
   drawStaffAnswers();
-  if (S.db) {
-    S.unsubReplies = S.db.collection(`posts/${id}/replies`).orderBy("createdAt").limit(200).onSnapshot(snap => {
-      S.replies = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      resolveNames(S.replies.map(r => r.authorId)).then(draw);
-      draw();
-    }, () => draw());
-  } else draw();
+  drawReplies();
+}
+function drawReplies() {
+  const box = $("#replies");
+  if (!box || !S.openPost) return;
+  const list = S.allReplies.filter(r => r.postKey === S.openPost && (S.canEdit || (!S.hidden.has(r.id) && !S.banned.has(r.authorId)))).sort((a, b) => a.createdAt - b.createdAt);
+  box.innerHTML = list.length ? list.map(r => `<div class="reply">
+    <div class="meta"><b style="color:var(--ink)">${esc(S.names[r.authorId] || "Studente")}</b><span>· ${ago(r.createdAt)}</span>${S.hidden.has(r.id) ? '<span class="tag" style="color:var(--bad)">Nascosta</span>' : ""}</div>
+    <div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(r.body)}</div>
+    ${r.authorId === S.uid ? `<button class="link-btn" style="color:var(--bad);font-size:12.5px;justify-self:start" data-act="del-reply" data-id="${r.id}">Elimina</button>`
+      : S.canEdit ? `<button class="link-btn" style="font-size:12.5px;justify-self:start" data-act="${S.hidden.has(r.id) ? "restore" : "hide"}" data-kind="reply" data-id="${r.id}">${S.hidden.has(r.id) ? "Ripristina" : "Nascondi"}</button>`
+      : S.uid ? `<button class="link-btn" style="color:var(--ink-soft);font-size:12.5px;justify-self:start" data-act="report" data-id="${r.id}">Segnala</button>` : ""}
+  </div>`).join("") : `<p class="muted" style="margin:6px 0">Ancora nessuna risposta.</p>`;
+  const unknown = list.filter(r => !(r.authorId in S.names));
+  if (unknown.length) resolveNames(unknown.map(r => r.authorId)).then(drawReplies);
+}
+
+/* ---- scritture nei documenti personali: ogni studente scrive solo posts/<id>, replies/<id>, votes/<id>, reports/<id> */
+const mineChain = {};
+function writeMine(col, mutate) {
+  mineChain[col] = (mineChain[col] || Promise.resolve()).catch(() => {}).then(async () => {
+    const ref = S.db.doc(`${col}/${S.uid}`);
+    const snap = await ref.get();
+    const body = snap.exists ? JSON.parse(JSON.stringify(snap.data())) : {};
+    mutate(body);
+    await ref.set(body);
+  });
+  return mineChain[col];
+}
+const splitKey = k => { const i = k.indexOf("~"); return [k.slice(0, i), k.slice(i + 1)]; };
+function refreshPosts() {
+  S.posts = S.allPosts.filter(p => S.canEdit || (!S.hidden.has(p.id) && !S.banned.has(p.authorId))).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 const answersFor = id => S.staffAnswers.filter(a => a.postId === id);
@@ -818,8 +845,8 @@ function drawStaffAnswers() {
 /* ------------------------------------------------------------------ area staff */
 function vStaff() {
   if (!S.canEdit) return `<div class="empty glass">${icon("shield")}<h3>Area riservata al personale</h3><p class="muted" style="margin:0;max-width:34ch">Docenti e personale dell'ateneo accedono qui con il permesso di Editor sull'app.</p></div>`;
-  const subs = [["panoramica", "Panoramica"], ["richieste", "Richieste"], ["comunicazioni", "Comunicazioni"], ["materiali", "Materiali"], ["faq", "Assistente AI"], ["eventi", "Eventi"]];
-  const body = { panoramica: vStaffHome, richieste: vStaffInbox, comunicazioni: vStaffAnns, materiali: vStaffMaterials, faq: vStaffFaq, eventi: vStaffEvents }[S.staffSub]();
+  const subs = [["panoramica", "Panoramica"], ["richieste", "Richieste"], ["moderazione", `Moderazione${pendingReports().length ? " · " + pendingReports().length : ""}`], ["comunicazioni", "Comunicazioni"], ["materiali", "Materiali"], ["faq", "Assistente AI"], ["eventi", "Eventi"]];
+  const body = { panoramica: vStaffHome, richieste: vStaffInbox, moderazione: vStaffMod, comunicazioni: vStaffAnns, materiali: vStaffMaterials, faq: vStaffFaq, eventi: vStaffEvents }[S.staffSub]();
   return `${S.profile?.staffRole ? "" : `<div class="banner glass"><div><b>Completa il profilo staff.</b> Ruolo e dipartimento compaiono nelle risposte in incognito al posto del nome.</div><button class="btn primary small" data-act="profile">Completa</button></div>`}
   <div class="chips" role="group" aria-label="Strumenti staff">${subs.map(([k, t]) => `<button class="chip" data-sub="${k}" aria-pressed="${k === S.staffSub}">${t}</button>`).join("")}</div>
   ${body}`;
@@ -864,6 +891,50 @@ function vStaffInbox() {
   <p class="hint" style="margin:0">Apri una domanda per rispondere. La risposta in incognito mostra agli studenti solo ruolo e dipartimento.</p>
   ${list.length ? list.map(vPost).join("") : `<div class="empty glass">${icon("chat")}<h3>Tutto in ordine</h3><p class="muted" style="margin:0">Nessuna richiesta in questa lista.</p></div>`}`;
 }
+const pendingReports = () => S.reports.filter(r => !S.reviewed.has(r.key) && !S.hidden.has(r.key));
+function vStaffMod() {
+  const pend = pendingReports();
+  const item = r => {
+    const post = S.allPosts.find(p => p.id === r.key), reply = S.allReplies.find(x => x.id === r.key);
+    const it = post || reply;
+    if (!it) return "";
+    return `<article class="panel glass stack" style="gap:6px;padding:14px 16px">
+      <div class="meta"><span class="tag" style="color:var(--bad)">${r.count} segnalazion${r.count === 1 ? "e" : "i"}</span><span class="tag">${post ? "Domanda" : "Risposta"}</span><span>${esc(S.names[it.authorId] || "Studente")} · ${ago(it.createdAt)}</span></div>
+      ${post ? `<b>${esc(post.title)}</b>` : ""}
+      <div class="muted" style="font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:7.5em;overflow:hidden">${esc(it.body)}</div>
+      ${r.reasons.length ? `<span class="hint">Motivi: ${r.reasons.map(esc).join(" · ")}</span>` : ""}
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+        <button class="btn primary small" data-act="hide" data-kind="${post ? "post" : "reply"}" data-id="${r.key}">Nascondi</button>
+        <button class="btn ghost small" data-act="review" data-id="${r.key}">Va bene così</button>
+        ${S.banned.has(it.authorId) ? "" : `<button class="btn ghost small" style="color:var(--bad)" data-act="ban" data-id="${it.authorId}">Sospendi autore</button>`}
+      </div>
+    </article>`;
+  };
+  const bans = [...S.banned.entries()];
+  return `<p class="hint" style="margin:0">Gli studenti possono modificare solo i propri contenuti. Il personale nasconde domande e risposte e sospende gli account: gli studenti non possono annullare queste decisioni.</p>
+  <div class="section-h"><h2>Segnalazioni da rivedere</h2></div>
+  ${pend.length ? pend.map(item).join("") : `<div class="empty glass">${icon("shield")}<h3>Nessuna segnalazione aperta</h3></div>`}
+  <div class="section-h"><h2>Account sospesi</h2></div>
+  ${bans.length ? `<section class="panel glass activity">${bans.map(([id, b]) => `<div class="row" style="justify-content:space-between"><span><b>${esc(S.names[id] || "Studente")}</b> <span class="muted">· ${esc(b.reason || "nessun motivo")} · ${ago(b.createdAt)}</span></span><button class="btn ghost small" data-act="unban" data-id="${id}">Riattiva</button></div>`).join("")}</section>` : `<p class="muted" style="margin:0">Nessun account sospeso.</p>`}`;
+}
+function sheetReport(key) {
+  openSheet(`<h2>Segnala ai moderatori</h2>
+    <form class="f" id="report-form" data-key="${esc(key)}">
+      <div class="chips" style="flex-wrap:wrap" role="group" aria-label="Motivo">${["Offensivo", "Spam o pubblicità", "Contenuto copiato o vietato", "Dati personali", "Altro"].map((m, i) => `<button type="button" class="chip" data-reason="${m}" aria-pressed="${i === 0}">${m}</button>`).join("")}</div>
+      <input type="hidden" id="r-reason" value="Offensivo">
+      <p class="hint">Il personale vede la segnalazione, non chi l'ha fatta.</p>
+      <button class="btn primary">Invia segnalazione</button>
+    </form>`);
+}
+function sheetBan(uid) {
+  openSheet(`<h2>Sospendi autore</h2>
+    <p class="muted" style="margin:0;font-size:13.5px">Le sue domande e risposte spariscono per tutti e non potrà più scrivere finché non lo riattivi.</p>
+    <form class="f" id="ban-form" data-uid="${esc(uid)}">
+      <div class="field"><label for="b-reason">Motivo (visibile solo al personale)</label><input id="b-reason" maxlength="140" placeholder="Es. insulti ripetuti"></div>
+      <button class="btn primary" style="background:var(--bad)">Sospendi</button>
+    </form>`);
+}
+
 function vStaffAnns() {
   const all = activeAnns(true);
   return `<button class="btn primary" data-act="add-ann">${icon("megaphone", 'width="18" height="18"')}Nuova comunicazione</button>
@@ -1035,6 +1106,8 @@ document.addEventListener("click", async ev => {
   if (area) { S.filter.area = area.dataset.area; return render(true); }
   const city = ev.target.closest("[data-city]");
   if (city) { S.evCity = city.dataset.city; return render(true); }
+  const rsn = ev.target.closest("[data-reason]");
+  if (rsn) { $("#r-reason").value = rsn.dataset.reason; document.querySelectorAll("[data-reason]").forEach(b => b.setAttribute("aria-pressed", b === rsn)); return; }
   const stBtn = ev.target.closest("[data-status]");
   if (stBtn) {
     $("#e-status").value = stBtn.dataset.status;
@@ -1062,11 +1135,18 @@ document.addEventListener("click", async ev => {
     case "vote": {
       ev.stopPropagation();
       if (!S.db || !S.uid) { toast("Accedi a Claude per votare"); break; }
-      const p = S.posts.find(x => x.id === id); if (!p) break;
-      try { await S.db.doc(`posts/${id}`).update({ votes: { [S.uid]: !p.votes?.[S.uid] } }); } catch { toast("Voto non registrato. Riprova."); }
+      const next = !S.myVotes[id];
+      try { await writeMine("votes", b => { b.v = b.v || {}; if (next) b.v[id] = true; else delete b.v[id]; }); } catch { toast("Voto non registrato. Riprova."); }
       break;
     }
-    case "del-post": try { await S.db.doc(`posts/${id}`).delete(); closeSheet(); toast("Domanda eliminata"); } catch { toast("Non sono riuscito a eliminarla"); } break;
+    case "del-post": try { const [, pid] = splitKey(id); await writeMine("posts", b => { delete b.items?.[pid]; }); closeSheet(); toast("Domanda eliminata"); } catch { toast("Non sono riuscito a eliminarla"); } break;
+    case "del-reply": try { const [, rid] = splitKey(id); await writeMine("replies", b => { delete b.items?.[rid]; }); toast("Risposta eliminata"); } catch { toast("Non sono riuscito a eliminarla"); } break;
+    case "report": if (!S.uid) toast("Accedi per segnalare"); else sheetReport(id); break;
+    case "hide": try { await S.db.doc(`moderation/${id}`).set({ hidden: true, kind: a.dataset.kind || "post", byLabel: staffLabel(), createdAt: Date.now() }); toast("Contenuto nascosto per gli studenti"); if (S.openPost === id) closeSheet(); } catch { toast("Solo il personale può moderare"); } break;
+    case "restore": try { await S.db.doc(`moderation/${id}`).set({ hidden: false, reviewed: true, byLabel: staffLabel(), createdAt: Date.now() }); toast("Contenuto ripristinato"); drawReplies(); } catch { toast("Solo il personale può moderare"); } break;
+    case "review": try { await S.db.doc(`moderation/${id}`).set({ hidden: false, reviewed: true, byLabel: staffLabel(), createdAt: Date.now() }); toast("Segnalazione chiusa"); } catch { toast("Solo il personale può moderare"); } break;
+    case "ban": sheetBan(id); break;
+    case "unban": try { await S.db.doc(`bans/${id}`).delete(); toast("Account riattivato"); } catch { toast("Solo il personale può moderare"); } break;
     case "add-event": sheetEvent(); break;
     case "del-event": try { await S.db.doc(`events/${id}`).delete(); toast("Evento eliminato"); } catch { toast("Non sono riuscito a eliminarlo"); } break;
     case "add-ann": sheetAnn(a.dataset.level); break;
@@ -1133,7 +1213,8 @@ document.addEventListener("submit", async ev => {
     if (title.length < 6) return err("n-err", "Il titolo deve avere almeno 6 caratteri.");
     if (body.length < 10) return err("n-err", "Aggiungi qualche dettaglio in più nel testo.");
     try {
-      await S.db.collection("posts").add({ title, body, uni: val("n-uni"), area: val("n-area"), subject: val("n-subject"), toStaff: $("#n-staff").checked, authorId: S.uid, createdAt: Date.now(), votes: {} });
+      const item = { title, body, uni: val("n-uni"), area: val("n-area"), subject: val("n-subject"), toStaff: $("#n-staff").checked, createdAt: Date.now() };
+      await writeMine("posts", b => { b.items = b.items || {}; b.items[uidGen() + Date.now().toString(36)] = item; });
       closeSheet(); S.filter.uni = val("n-uni") || S.filter.uni; toast("Domanda pubblicata");
     } catch (e) { err("n-err", e?.code === "quota_exceeded" ? "La community è piena: contatta gli amministratori." : "Non hai i permessi per pubblicare qui. Chiedi accesso come Contributor."); }
   }
@@ -1141,7 +1222,17 @@ document.addEventListener("submit", async ev => {
     const body = val("reply");
     if (!body || !S.openPost) return;
     $("#reply").value = "";
-    try { await S.db.collection(`posts/${S.openPost}/replies`).add({ body, authorId: S.uid, createdAt: Date.now() }); } catch { toast("Risposta non inviata. Riprova."); $("#reply").value = body; }
+    const postKey = S.openPost;
+    try { await writeMine("replies", b => { b.items = b.items || {}; b.items[uidGen() + Date.now().toString(36)] = { postKey, body, createdAt: Date.now() }; }); } catch { toast("Risposta non inviata. Riprova."); $("#reply").value = body; }
+  }
+  if (f.id === "report-form") {
+    const key = f.dataset.key, reason = val("r-reason");
+    try { await writeMine("reports", b => { b.items = b.items || {}; b.items[key] = { reason, createdAt: Date.now() }; }); closeSheet(); toast("Segnalazione inviata ai moderatori"); }
+    catch { toast("Segnalazione non inviata. Riprova."); }
+  }
+  if (f.id === "ban-form") {
+    try { await S.db.doc(`bans/${f.dataset.uid}`).set({ reason: val("b-reason"), byLabel: staffLabel(), createdAt: Date.now() }); closeSheet(); toast("Account sospeso"); }
+    catch { toast("Solo il personale può sospendere account"); }
   }
   if (f.id === "staff-answer-form") {
     const body = val("sa-body"), anon = $("#sa-anon").checked, post = S.posts.find(x => x.id === S.openPost);
@@ -1221,12 +1312,40 @@ document.addEventListener("submit", async ev => {
       if (l?.exams) { S.exams = l.exams; S.demo = false; } else if (!S.demo) savePrivate("libretto", { exams: S.exams });
     }
     if (!db) { S.postsState = "offline"; S.eventsState = "offline"; render(true); return; }
-    db.collection("posts").orderBy("createdAt", "desc").limit(200).onSnapshot(snap => {
-      S.posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const rerender = () => { refreshPosts(); drawReplies(); if (S.tab !== "ai") render(true); };
+    /* posts/<uid> = { items: { <pid>: {...} } }: l'autore è l'id del documento, nessuno può scrivere a nome di altri */
+    db.collection("posts").limit(1000).onSnapshot(snap => {
+      S.allPosts = snap.docs.flatMap(d => Object.entries(d.data().items || {}).map(([pid, it]) => ({ ...it, id: d.id + "~" + pid, authorId: d.id })));
       S.postsState = "ready";
-      resolveNames(S.posts.map(p => p.authorId)).then(() => { if (S.tab === "community") render(true); });
-      if (S.tab === "community") render(true);
+      resolveNames(S.allPosts.map(p => p.authorId)).then(rerender);
+      rerender();
     }, () => { S.postsState = "offline"; if (S.tab === "community") render(true); });
+    db.collection("replies").limit(1000).onSnapshot(snap => {
+      S.allReplies = snap.docs.flatMap(d => Object.entries(d.data().items || {}).map(([rid, it]) => ({ ...it, id: d.id + "~" + rid, authorId: d.id })));
+      drawReplies();
+    }, () => {});
+    db.collection("votes").limit(1000).onSnapshot(snap => {
+      const c = {};
+      snap.docs.forEach(d => Object.entries(d.data().v || {}).forEach(([k, on]) => { if (on) c[k] = (c[k] || 0) + 1; }));
+      S.voteCount = c;
+      S.myVotes = snap.docs.find(d => d.id === S.uid)?.data().v || {};
+      if (S.tab === "community" || S.tab === "staff") render(true);
+    }, () => {});
+    db.collection("moderation").limit(1000).onSnapshot(snap => {
+      S.hidden = new Set(snap.docs.filter(d => d.data().hidden).map(d => d.id));
+      S.reviewed = new Set(snap.docs.filter(d => d.data().reviewed).map(d => d.id));
+      rerender();
+    }, () => {});
+    db.collection("bans").limit(1000).onSnapshot(snap => {
+      S.banned = new Map(snap.docs.map(d => [d.id, d.data()]));
+      rerender();
+    }, () => {});
+    if (S.canEdit) db.collection("reports").limit(1000).onSnapshot(snap => {
+      const agg = {};
+      snap.docs.forEach(d => Object.entries(d.data().items || {}).forEach(([k, it]) => { const a = (agg[k] = agg[k] || { key: k, count: 0, reasons: [] }); a.count++; if (it.reason && !a.reasons.includes(it.reason)) a.reasons.push(it.reason); }));
+      S.reports = Object.values(agg).sort((a, b) => b.count - a.count);
+      if (S.tab === "staff") render(true);
+    }, () => {});
     db.collection("events").orderBy("date").limit(200).onSnapshot(snap => {
       S.events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       S.eventsState = "ready";
