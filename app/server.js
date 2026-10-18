@@ -131,24 +131,41 @@ function broadcast(resource) {
 }
 
 /* ------------------------------------------------------------------ email */
-const mailer = ENV.SMTP_HOST ? nodemailer.createTransport({
+// Brevo (API HTTPS) ha la precedenza: il piano gratuito di Render blocca le porte SMTP 465 e 587
+const mailer = ENV.SMTP_HOST && !ENV.BREVO_API_KEY ? nodemailer.createTransport({
   host: ENV.SMTP_HOST, port: Number(ENV.SMTP_PORT || 587), secure: ENV.SMTP_SECURE === "true",
   auth: ENV.SMTP_USER ? { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS } : undefined,
-  // timeout brevi: senza, una porta SMTP bloccata (es. piano gratuito Render) lascia l'accesso appeso per 2 minuti
+  // timeout brevi: senza, una porta SMTP bloccata lascia l'accesso appeso per 2 minuti
   connectionTimeout: 10e3, greetingTimeout: 10e3, socketTimeout: 20e3,
 }) : null;
+// "Nome <indirizzo>" → { name, email }
+function parseFrom(s = "") {
+  const m = s.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
+  return m ? { name: m[1] || undefined, email: m[2].trim() } : { email: s.trim() };
+}
+async function sendBrevo({ to, subject, text }) {
+  const res = await fetch(ENV.BREVO_API_URL || "https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": ENV.BREVO_API_KEY, "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ sender: parseFrom(ENV.MAIL_FROM), to: [{ email: to }], subject, textContent: text }),
+    signal: AbortSignal.timeout(10e3),
+  });
+  if (!res.ok) throw Object.assign(new Error(`Brevo ${res.status}: ${(await res.text()).slice(0, 300)}`), { code: "BREVO" });
+}
 async function sendCode(email, code) {
-  if (!mailer) {
+  if (!mailer && !ENV.BREVO_API_KEY) {
     if (PROD) fail(503, "Invio email non configurato.");
     console.log(`[dev] codice di accesso per ${email}: ${code}`);
     return;
   }
+  const msg = {
+    to: email,
+    subject: `${code} è il tuo codice per Insubria Hub`,
+    text: `Il tuo codice di accesso è ${code}. Scade tra 10 minuti.\n\nSe non hai chiesto tu l'accesso, ignora questa email.`,
+  };
   try {
-    await mailer.sendMail({
-      from: ENV.MAIL_FROM || ENV.SMTP_USER, to: email,
-      subject: `${code} è il tuo codice per Insubria Hub`,
-      text: `Il tuo codice di accesso è ${code}. Scade tra 10 minuti.\n\nSe non hai chiesto tu l'accesso, ignora questa email.`,
-    });
+    if (ENV.BREVO_API_KEY) await sendBrevo(msg);
+    else await mailer.sendMail({ from: ENV.MAIL_FROM || ENV.SMTP_USER, ...msg });
   } catch (e) {
     console.error(`[email] invio a ${email} non riuscito: ${e.code || ""} ${e.message}`);
     fail(503, "Non riusciamo a inviare l'email con il codice in questo momento. Riprova più tardi.");

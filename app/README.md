@@ -36,7 +36,7 @@ Le comunicazioni urgenti arrivano sempre e restano a schermo finché non vengono
 Serve un dominio HTTPS (obbligatorio per service worker e notifiche), un server Node 22.13+ con disco persistente e le variabili di `.env.example`:
 
 - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`: `npx web-push generate-vapid-keys`. Non cambiarle dopo il lancio, altrimenti tutte le iscrizioni alle notifiche vanno rifatte.
-- SMTP per inviare i codici di accesso.
+- Invio dei codici di accesso: `BREVO_API_KEY` (API HTTPS di Brevo, piano gratuito da 300 email al giorno) oppure le variabili SMTP. Su Render serve Brevo: il piano gratuito blocca le porte SMTP 465 e 587. In entrambi i casi `MAIL_FROM` deve essere un mittente autorizzato.
 - `ANTHROPIC_API_KEY` per l'assistente.
 
 `render.yaml` (nella radice del repository) crea il servizio su Render sul piano gratuito; i commenti nel file spiegano come passare a un piano con disco persistente. Il `Dockerfile` va bene per qualunque hosting con volumi.

@@ -27,16 +27,9 @@ services:
         sync: false
       - key: VAPID_SUBJECT
         value: mailto:infoeventiinsubria@gmail.com
-      # Email con il codice di accesso, inviate dall'account Gmail del progetto (serve una password per app)
-      - key: SMTP_HOST
-        value: smtp.gmail.com
-      - key: SMTP_PORT
-        value: "465"
-      - key: SMTP_SECURE
-        value: "true"
-      - key: SMTP_USER
-        value: infoeventiinsubria@gmail.com
-      - key: SMTP_PASS
+      # Email con il codice di accesso, inviate tramite l'API HTTPS di Brevo: il piano gratuito blocca le porte SMTP.
+      # MAIL_FROM deve essere un mittente verificato nell'account Brevo. Le variabili SMTP_* restano per altri hosting.
+      - key: BREVO_API_KEY
         sync: false
       - key: MAIL_FROM
         value: Insubria Hub <infoeventiinsubria@gmail.com>
