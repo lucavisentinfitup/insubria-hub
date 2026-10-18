@@ -155,6 +155,38 @@ try {
     assert.equal((await marco("/api/me", { raw: true })).status, 401);
     assert.ok(!(await prof("/api/posts")).some(p => p.id === bad.id), "le domande dell'account eliminato spariscono");
   });
+  await step("password: creazione, accesso, errori, cambio e recupero", async () => {
+    const email = "luca.pw@studenti.uninsubria.it";
+    const reg = client();
+    const { devCode } = await reg("/api/auth/request", { method: "POST", body: { email } });
+    const v = await reg("/api/auth/verify", { method: "POST", body: { email, code: devCode } });
+    assert.equal(v.hasPassword, false);
+    assert.equal((await reg("/api/me")).user.hasPassword, false);
+    assert.equal((await reg("/api/auth/password", { method: "POST", body: { password: "corta" }, raw: true })).status, 400);
+    await reg("/api/auth/password", { method: "POST", body: { password: "prima-password-1" } });
+    assert.equal((await reg("/api/me")).user.hasPassword, true);
+    // accesso con password da un altro dispositivo
+    const pc = client();
+    assert.equal((await pc("/api/auth/login", { method: "POST", body: { email, password: "sbagliata-123" }, raw: true })).status, 400);
+    const ghost = await pc("/api/auth/login", { method: "POST", body: { email: "nessuno@example.com", password: "qualsiasi-1" }, raw: true });
+    assert.equal(ghost.status, 400);
+    assert.match(ghost.data.error, /Email o password non corretti/);
+    await pc("/api/auth/login", { method: "POST", body: { email: email.toUpperCase(), password: "prima-password-1" } });
+    assert.equal((await pc("/api/me")).user.email, email);
+    // da una sessione con password il cambio richiede la password attuale
+    assert.equal((await pc("/api/auth/password", { method: "POST", body: { password: "seconda-password-2" }, raw: true })).status, 400);
+    await pc("/api/auth/password", { method: "POST", body: { password: "seconda-password-2", current: "prima-password-1" } });
+    assert.equal((await reg("/api/me", { raw: true })).status, 401, "le altre sessioni vengono chiuse");
+    // recupero: accesso con codice e nuova password senza quella vecchia
+    const rec = client();
+    const r = await rec("/api/auth/request", { method: "POST", body: { email } });
+    assert.equal((await rec("/api/auth/verify", { method: "POST", body: { email, code: r.devCode } })).hasPassword, true);
+    await rec("/api/auth/password", { method: "POST", body: { password: "terza-password-3" } });
+    const again = client();
+    await again("/api/auth/login", { method: "POST", body: { email, password: "terza-password-3" } });
+    const exp = await again("/api/me/export");
+    assert.ok(!JSON.stringify(exp).includes("scrypt"), "l'hash della password non esce nell'esportazione");
+  });
   await step("pagine statiche e manifest servite", async () => {
     for (const p of ["/", "/app.js", "/sw.js", "/manifest.webmanifest", "/icons/icon-192.png"]) assert.equal((await fetch(BASE + p)).status, 200, p);
     const csp = (await fetch(BASE + "/")).headers.get("content-security-policy");

@@ -134,5 +134,9 @@ export function openDb(dataDir) {
     CREATE INDEX IF NOT EXISTS idx_answers_post ON staff_answers(post_id);
     CREATE INDEX IF NOT EXISTS idx_push_user ON push_subs(user_id);
   `);
+  // migrazioni per database già esistenti
+  const cols = t => db.prepare(`PRAGMA table_info(${t})`).all().map(c => c.name);
+  if (!cols("users").includes("password_hash")) db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+  if (!cols("sessions").includes("via_code_at")) db.exec("ALTER TABLE sessions ADD COLUMN via_code_at INTEGER");
   return db;
 }

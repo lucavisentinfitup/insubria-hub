@@ -201,7 +201,7 @@ app.use((req, res, next) => {
   const m = /(?:^|;\s*)ih_session=([^;]+)/.exec(req.headers.cookie || "");
   if (m) {
     const s = get("SELECT * FROM sessions WHERE token_hash = ? AND expires_at > ?", sha(m[1]), now());
-    if (s) req.user = get("SELECT * FROM users WHERE id = ?", s.user_id);
+    if (s) { req.user = get("SELECT * FROM users WHERE id = ?", s.user_id); req.session = s; }
   }
   next();
 });
@@ -238,15 +238,62 @@ app.post("/api/auth/verify", wrap(async (req, res) => {
   }
   run("DELETE FROM login_codes WHERE email = ?", email);
   let user = get("SELECT * FROM users WHERE email = ?", email);
+  const isNew = !user;
   if (!user) {
     run("INSERT INTO users (id, email, role, created_at) VALUES (?,?,?,?)", newId(), email, roleFor(email), now());
     user = get("SELECT * FROM users WHERE email = ?", email);
   } else if (roleFor(email) !== "student" && user.role === "student") {
     run("UPDATE users SET role = ? WHERE id = ?", roleFor(email), user.id);
   }
+  startSession(res, user, true);
+  res.json({ ok: true, isNew, hasPassword: !!user.password_hash });
+}));
+function startSession(res, user, viaCode) {
   const token = crypto.randomBytes(32).toString("base64url");
-  run("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?,?,?)", sha(token), user.id, now() + SESSION_DAYS * 864e5);
+  run("INSERT INTO sessions (token_hash, user_id, expires_at, via_code_at) VALUES (?,?,?,?)", sha(token), user.id, now() + SESSION_DAYS * 864e5, viaCode ? now() : null);
   res.cookie("ih_session", token, { httpOnly: true, secure: PROD, sameSite: "lax", maxAge: SESSION_DAYS * 864e5, path: "/" });
+}
+
+/* ---------- password: il codice via email serve per registrarsi e per recuperarla */
+const scrypt = (pw, salt) => new Promise((ok, ko) => crypto.scrypt(pw, salt, 64, { N: 16384, r: 8, p: 1 }, (e, k) => (e ? ko(e) : ok(k))));
+async function hashPassword(pw) {
+  const salt = crypto.randomBytes(16);
+  return `scrypt$${salt.toString("base64url")}$${(await scrypt(pw, salt)).toString("base64url")}`;
+}
+async function checkPassword(pw, stored) {
+  const [kind, salt, hash] = String(stored || "").split("$");
+  if (kind !== "scrypt" || !salt || !hash) return false;
+  const want = Buffer.from(hash, "base64url");
+  const got = await scrypt(pw, Buffer.from(salt, "base64url"));
+  return got.length === want.length && crypto.timingSafeEqual(got, want);
+}
+const RESET_WINDOW = 15 * 60e3; // dopo un accesso con codice si può reimpostare la password senza quella vecchia
+app.post("/api/auth/login", wrap(async (req, res) => {
+  const email = str(req.body.email, 200, { required: true, label: "indirizzo email" }).toLowerCase();
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+  if (!password) fail(400, "Scrivi la password.");
+  limit("login:" + email, 8, 15 * 60e3);
+  limit("ip:" + req.ip, 20, 15 * 60e3);
+  const user = get("SELECT * FROM users WHERE email = ?", email);
+  // stesso messaggio e stesso tempo di calcolo anche se l'account non esiste o non ha password
+  const ok = await checkPassword(password, user?.password_hash || "scrypt$AAAAAAAAAAAAAAAAAAAAAA$AAAA");
+  if (!user || !user.password_hash || !ok) fail(400, "Email o password non corretti. Se è il tuo primo accesso, ricevi un codice via email.");
+  startSession(res, user, false);
+  res.json({ ok: true });
+}));
+app.post("/api/auth/password", needUser, wrap(async (req, res) => {
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+  if (password.length < 8) fail(400, "La password deve avere almeno 8 caratteri.");
+  if (password.length > 200) fail(400, "La password supera i 200 caratteri.");
+  if (password.toLowerCase() === req.user.email) fail(400, "La password non può essere uguale all'email.");
+  const fresh = req.session.via_code_at && now() - req.session.via_code_at < RESET_WINDOW;
+  if (req.user.password_hash && !fresh) {
+    limit("pwchange:" + req.user.id, 8, 15 * 60e3);
+    if (!(await checkPassword(String(req.body.current || ""), req.user.password_hash))) fail(400, "La password attuale non è corretta.");
+  }
+  run("UPDATE users SET password_hash = ? WHERE id = ?", await hashPassword(password), req.user.id);
+  // le altre sessioni aperte vengono chiuse
+  run("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", req.user.id, req.session.token_hash);
   res.json({ ok: true });
 }));
 app.post("/api/auth/logout", (req, res) => {
@@ -258,7 +305,7 @@ app.post("/api/auth/logout", (req, res) => {
 
 /* ---------- profilo e libretto */
 const meView = u => ({
-  user: { id: u.id, email: u.email, role: u.role, banned: !!u.banned_at, firstName: u.first_name, lastName: u.last_name },
+  user: { id: u.id, email: u.email, role: u.role, banned: !!u.banned_at, firstName: u.first_name, lastName: u.last_name, hasPassword: !!u.password_hash },
   profile: { ...json(u.profile), firstName: u.first_name, lastName: u.last_name, email: u.email, phone: u.phone },
   libretto: json(u.libretto),
 });
@@ -673,14 +720,13 @@ app.post("/api/assistant", needUser, wrap(async (req, res) => {
   res.set({ "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" });
   let wrote = false;
   try {
-    const stream = anthropic.beta.messages.stream({
-      model: ENV.CLAUDE_MODEL || "claude-opus-5-5",
+    // Haiku 5.5: economico e sufficiente per orientare gli studenti; non ha il fallback lato server per i rifiuti
+    const stream = anthropic.messages.stream({
+      model: ENV.CLAUDE_MODEL || "claude-haiku-5-5",
       max_tokens: 4000,
       system: assistantSystem(req.user),
       messages,
       output_config: { effort: "low" },
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
     });
     req.on("close", () => stream.abort());
     for await (const ev of stream) {

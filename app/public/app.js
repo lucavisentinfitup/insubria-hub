@@ -57,7 +57,7 @@ const S = {
   chat: [], busy: false, streaming: false, ctl: null,
   openPost: null, detail: null,
   commSeg: "domande", matDep: "Tutti", matQ: "", staffSub: "panoramica", inboxF: "aperte", evCity: "Tutte",
-  login: { step: "email", email: "", devCode: "" },
+  login: { step: "password", email: "", devCode: "", recover: false },
   push: { supported: false, permission: "default", subscribed: false, prefs: {}, endpoint: null },
   installEvt: null, dismissed: [],
 };
@@ -265,13 +265,22 @@ function vLogin() {
     <div class="hero glass">
       <span class="eyebrow">Università dell'Insubria</span>
       <h1>Libretto, community e avvisi in <em>un'app</em></h1>
-      <p class="muted" style="margin:0">Accedi con la mail universitaria o con una personale. Ti mandiamo un codice di 6 cifre, niente password.</p>
+      <p class="muted" style="margin:0">Accedi con la mail universitaria o con una personale. La prima volta ti mandiamo un codice di 6 cifre e scegli la tua password.</p>
     </div>
-    ${L.step === "email" ? `<form class="panel glass f" id="login-email" novalidate style="margin:0">
+    ${L.step === "password" ? `<form class="panel glass f" id="login-password" novalidate style="margin:0">
+      <div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="username" inputmode="email" required placeholder="nome.cognome@studenti.uninsubria.it" value="${esc(L.email)}"></div>
+      <div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" required></div>
+      <p class="hint" id="l-err" style="color:var(--bad)" hidden></p>
+      <button class="btn primary">Accedi</button>
+      <button type="button" class="btn ghost" data-act="login-first">Primo accesso: ricevi un codice via email</button>
+      <button type="button" class="link-btn" data-act="login-forgot">Password dimenticata?</button>
+    </form>` : L.step === "email" ? `<form class="panel glass f" id="login-email" novalidate style="margin:0">
+      <p style="margin:0">${L.recover ? "Ti mandiamo un codice per accedere e scegliere una nuova password." : "Ti mandiamo un codice per registrarti. Poi sceglierai la password per gli accessi successivi."}</p>
       <div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="email" inputmode="email" required placeholder="nome.cognome@studenti.uninsubria.it" value="${esc(L.email)}"></div>
       <p class="hint" id="l-err" style="color:var(--bad)" hidden></p>
       <button class="btn primary">Ricevi il codice</button>
       <p class="hint" style="margin:0">Con una mail @uninsubria.it accedi come personale dell'ateneo.</p>
+      <button type="button" class="link-btn" data-act="login-back-password">Ho già una password</button>
     </form>` : `<form class="panel glass f" id="login-code" novalidate style="margin:0">
       <p style="margin:0">Abbiamo inviato il codice a <b>${esc(L.email)}</b>.</p>
       ${L.devCode ? `<p class="hint" style="margin:0">Modalità sviluppo: il codice è <b>${esc(L.devCode)}</b></p>` : ""}
@@ -686,11 +695,29 @@ function sheetProfile(force) {
       <div><b style="color:var(--ink)">Windows e macOS:</b> Chrome o Edge → icona di installazione nella barra degli indirizzi. Safari su Mac → File → "Aggiungi al Dock".</div></div>`}
     <div class="section-h" style="margin-top:22px"><h2 style="font-size:17px">Account e dati</h2></div>
     <div class="stack">
+      <button class="btn ghost" data-act="password">${S.me.hasPassword ? "Cambia password" : "Crea una password"}</button>
       <a class="btn ghost" href="/api/me/export" download>Scarica una copia dei miei dati</a>
       <button class="btn ghost" data-act="logout">Esci</button>
       <button class="btn ghost" style="color:var(--bad)" data-act="del-account">Elimina il mio account</button>
     </div>
     <button class="btn ghost" style="width:100%;margin-top:14px" data-act="close">Chiudi</button>`}`, force ? () => { if (!S.profile?.firstName) setTimeout(() => sheetProfile(true), 0); } : null);
+}
+// force: obbligatoria dopo la registrazione; fresh: accesso con codice appena fatto, la password attuale non serve
+function sheetPassword({ force = false, fresh = false } = {}) {
+  const needCurrent = S.me.hasPassword && !fresh;
+  openSheet(`
+    <h2>${S.me.hasPassword ? (fresh ? "Scegli una nuova password" : "Cambia password") : "Crea la tua password"}</h2>
+    <p class="muted" style="margin:0;font-size:13.5px">${S.me.hasPassword ? "Le altre sessioni aperte verranno chiuse." : "Dalla prossima volta accederai con email e password, senza aspettare il codice."}</p>
+    <form class="f" id="password-form" novalidate>
+      ${needCurrent ? `<div class="field"><label for="w-cur">Password attuale</label><input id="w-cur" type="password" autocomplete="current-password" required></div>` : ""}
+      <div class="field"><label for="w-new">Nuova password</label><input id="w-new" type="password" autocomplete="new-password" minlength="8" required><span class="hint">Almeno 8 caratteri.</span></div>
+      <div class="field"><label for="w-again">Ripeti la password</label><input id="w-again" type="password" autocomplete="new-password" required></div>
+      <p class="hint" id="w-err" style="color:var(--bad)" hidden></p>
+      <button class="btn primary">Salva password</button>
+      <input type="email" autocomplete="username" value="${esc(S.me.email)}" hidden aria-hidden="true">
+    </form>
+    ${force ? "" : `<button class="btn ghost" style="width:100%;margin-top:14px" data-act="close">${fresh ? "Non ora" : "Annulla"}</button>`}`,
+    () => { if (force && !S.me.hasPassword) setTimeout(() => sheetPassword({ force, fresh }), 0); else if (!S.profile?.firstName) setTimeout(() => sheetProfile(true), 0); });
 }
 function sheetExam(e) {
   const isNew = !e;
@@ -892,6 +919,10 @@ document.addEventListener("click", async ev => {
     case "scrim": case "close": closeSheet(); break;
     case "profile": if (S.me) sheetProfile(); break;
     case "login-back": S.login.step = "email"; render(); break;
+    case "login-first": case "login-forgot":
+      Object.assign(S.login, { step: "email", recover: name === "login-forgot", email: $("#l-email")?.value.trim() || S.login.email }); render(); break;
+    case "login-back-password": Object.assign(S.login, { step: "password", recover: false }); render(); break;
+    case "password": sheetPassword(); break;
     case "add-exam": sheetExam(); break;
     case "edit-exam": sheetExam(S.exams.find(e => e.id === id)); break;
     case "del-exam": S.exams = S.exams.filter(e => e.id !== id); persistExams(); closeSheet(); render(true); toast("Esame eliminato"); break;
@@ -969,7 +1000,25 @@ document.addEventListener("submit", async ev => {
       }
       case "login-code": {
         await api("/api/auth/verify", { method: "POST", body: { email: S.login.email, code: val("l-code") } });
+        await afterLogin({ viaCode: true });
+        break;
+      }
+      case "login-password": {
+        const email = val("l-email").toLowerCase();
+        S.login.email = email;
+        await api("/api/auth/login", { method: "POST", body: { email, password: $("#l-pass").value } });
         await afterLogin();
+        break;
+      }
+      case "password-form": {
+        const pw = $("#w-new").value, again = $("#w-again").value;
+        if (pw.length < 8) return err("w-err", "La password deve avere almeno 8 caratteri.");
+        if (pw !== again) return err("w-err", "Le due password non coincidono.");
+        await api("/api/auth/password", { method: "POST", body: { password: pw, current: $("#w-cur")?.value || "" } });
+        const first = !S.me.hasPassword;
+        S.me.hasPassword = true;
+        closeSheet();
+        toast(first ? "Password creata: dalla prossima volta accedi con email e password" : "Password aggiornata");
         break;
       }
       case "ask-form": { const v = val("ask"); $("#ask").value = ""; ask(v); break; }
@@ -1054,12 +1103,15 @@ function handleLink(hash) {
 }
 
 /* ------------------------------------------------------------------ avvio */
-async function afterLogin() {
+async function afterLogin({ viaCode = false } = {}) {
   const me = await api("/api/me");
   S.me = me.user; S.profile = me.profile;
   if (me.libretto?.exams?.length) { S.exams = me.libretto.exams; S.demo = false; }
   render();
-  if (!S.profile.firstName) sheetProfile(true);
+  // prima la password (registrazione o recupero), poi il profilo
+  if (!S.me.hasPassword) sheetPassword({ force: true, fresh: viaCode });
+  else if (viaCode && S.login.recover) sheetPassword({ fresh: true });
+  else if (!S.profile.firstName) sheetProfile(true);
   await Promise.all(Object.keys(loaders).map(k => loaders[k]().catch(() => {})));
   S.postsState = S.postsState === "loading" ? "ready" : S.postsState;
   render(true);
