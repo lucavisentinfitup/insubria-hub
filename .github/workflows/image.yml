@@ -5,7 +5,7 @@ name: Immagine Docker
 on:
   push:
     branches: [main]
-    paths: ["app/**", ".github/workflows/image.yml"]
+    paths: ["app/**", "deploy/tunnel/**", ".github/workflows/image.yml"]
   workflow_dispatch:
 
 permissions:
@@ -34,3 +34,12 @@ jobs:
             ghcr.io/lucavisentinfitup/insubria-hub:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # cloudflared per il tunnel: l'immagine ufficiale non ha la versione ARM a 32 bit
+      - uses: docker/build-push-action@v6
+        with:
+          context: deploy/tunnel
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          tags: ghcr.io/lucavisentinfitup/insubria-hub-tunnel:latest
+          cache-from: type=gha,scope=tunnel
+          cache-to: type=gha,scope=tunnel,mode=max

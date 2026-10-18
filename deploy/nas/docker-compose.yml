@@ -42,9 +42,9 @@ services:
       - ./backup:/backup
 
   tunnel:
-    image: cloudflare/cloudflared:latest
+    # cloudflared ufficiale, ricostruito anche per ARM a 32 bit (deploy/tunnel)
+    image: ghcr.io/lucavisentinfitup/insubria-hub-tunnel:latest
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on:
