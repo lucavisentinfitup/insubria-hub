@@ -1,4 +1,5 @@
-FROM node:24-slim
+# Node 22: l'ultima versione con immagini anche per ARM a 32 bit (es. QNAP TS-x41)
+FROM node:22-slim
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
