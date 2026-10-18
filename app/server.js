@@ -134,6 +134,8 @@ function broadcast(resource) {
 const mailer = ENV.SMTP_HOST ? nodemailer.createTransport({
   host: ENV.SMTP_HOST, port: Number(ENV.SMTP_PORT || 587), secure: ENV.SMTP_SECURE === "true",
   auth: ENV.SMTP_USER ? { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS } : undefined,
+  // timeout brevi: senza, una porta SMTP bloccata (es. piano gratuito Render) lascia l'accesso appeso per 2 minuti
+  connectionTimeout: 10e3, greetingTimeout: 10e3, socketTimeout: 20e3,
 }) : null;
 async function sendCode(email, code) {
   if (!mailer) {
@@ -141,11 +143,16 @@ async function sendCode(email, code) {
     console.log(`[dev] codice di accesso per ${email}: ${code}`);
     return;
   }
-  await mailer.sendMail({
-    from: ENV.MAIL_FROM || ENV.SMTP_USER, to: email,
-    subject: `${code} è il tuo codice per Insubria Hub`,
-    text: `Il tuo codice di accesso è ${code}. Scade tra 10 minuti.\n\nSe non hai chiesto tu l'accesso, ignora questa email.`,
-  });
+  try {
+    await mailer.sendMail({
+      from: ENV.MAIL_FROM || ENV.SMTP_USER, to: email,
+      subject: `${code} è il tuo codice per Insubria Hub`,
+      text: `Il tuo codice di accesso è ${code}. Scade tra 10 minuti.\n\nSe non hai chiesto tu l'accesso, ignora questa email.`,
+    });
+  } catch (e) {
+    console.error(`[email] invio a ${email} non riuscito: ${e.code || ""} ${e.message}`);
+    fail(503, "Non riusciamo a inviare l'email con il codice in questo momento. Riprova più tardi.");
+  }
 }
 
 /* ------------------------------------------------------------------ limiti di frequenza in memoria */
@@ -682,8 +689,10 @@ app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) return res.status(400).json({ error: err.code === "LIMIT_FILE_SIZE" ? `Il file supera i ${ENV.MAX_UPLOAD_MB || 50} MB.` : "Caricamento non valido." });
   if (err.type === "entity.too.large") return res.status(413).json({ error: "Contenuto troppo grande." });
   const status = err.status || 500;
-  if (status >= 500) console.error(err);
-  res.status(status).json({ error: status >= 500 ? "Errore del server. Riprova." : err.message });
+  // i messaggi di HttpError sono scritti per l'utente; gli errori imprevisti restano nascosti
+  const known = err instanceof HttpError;
+  if (status >= 500 && !known) console.error(err);
+  res.status(status).json({ error: status >= 500 && !known ? "Errore del server. Riprova." : err.message });
 });
 
 setInterval(() => { run("DELETE FROM sessions WHERE expires_at < ?", now()); run("DELETE FROM login_codes WHERE expires_at < ?", now()); }, 3600e3).unref();
