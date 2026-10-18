@@ -22,7 +22,7 @@ services:
         value: uninsubria.it
       # Notifiche push: la chiave pubblica non è segreta, la privata va inserita nel pannello Render
       - key: VAPID_PUBLIC_KEY
-        value: BALwvTWYnMXgNhpFnXsi_n2k5lOe8neE_qYJGaOEmJ-4okox4vvs5Y3NKAmhZd_GnT6A6VUtDeJ53En6b8vV2Po
+        value: BEoNKouKe0-RcPBj5cmefEaFf3P2k-QrZ8Uy4OJsOxmYihsENTUoZrZO2cH0OBOlCySM2Ph9MdsDM3y3opFJaF0
       - key: VAPID_PRIVATE_KEY
         sync: false
       - key: VAPID_SUBJECT
