@@ -17,6 +17,8 @@ const PORT = Number(ENV.PORT || 3000);
 const DATA_DIR = path.resolve(ENV.DATA_DIR || path.join(ROOT, "data"));
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 const PUBLIC_URL = ENV.PUBLIC_URL || ENV.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+// cookie Secure e HSTS solo se l'app è servita in HTTPS (in rete locale, es. sul NAS prima del tunnel, è http)
+const HTTPS = PROD && PUBLIC_URL.startsWith("https://");
 const listEnv = k => (ENV[k] || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 const ADMIN_EMAILS = listEnv("ADMIN_EMAILS");
 const STAFF_EMAILS = listEnv("STAFF_EMAILS");
@@ -191,7 +193,7 @@ app.use((req, res, next) => {
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
   });
-  if (PROD) res.set("Strict-Transport-Security", "max-age=31536000");
+  if (HTTPS) res.set("Strict-Transport-Security", "max-age=31536000");
   next();
 });
 app.use(express.json({ limit: "300kb" }));
@@ -251,7 +253,7 @@ app.post("/api/auth/verify", wrap(async (req, res) => {
 function startSession(res, user, viaCode) {
   const token = crypto.randomBytes(32).toString("base64url");
   run("INSERT INTO sessions (token_hash, user_id, expires_at, via_code_at) VALUES (?,?,?,?)", sha(token), user.id, now() + SESSION_DAYS * 864e5, viaCode ? now() : null);
-  res.cookie("ih_session", token, { httpOnly: true, secure: PROD, sameSite: "lax", maxAge: SESSION_DAYS * 864e5, path: "/" });
+  res.cookie("ih_session", token, { httpOnly: true, secure: HTTPS, sameSite: "lax", maxAge: SESSION_DAYS * 864e5, path: "/" });
 }
 
 /* ---------- password: il codice via email serve per registrarsi e per recuperarla */
